@@ -1,0 +1,43 @@
+{
+  "": {
+    "dependencies": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/axon.d",
+    "object": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/axon.o",
+    "swift-dependencies": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/primary.swiftdeps"
+  },
+  "/Users/anicolae/code/axon/Sources/axon/AXHelpers.swift": {
+    "object": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/AXHelpers.swift.o",
+    "swiftmodule": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/AXHelpers~partial.swiftmodule",
+    "swift-dependencies": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/AXHelpers.swiftdeps",
+    "diagnostics": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/AXHelpers.dia"
+  },
+  "/Users/anicolae/code/axon/Sources/axon/Actions.swift": {
+    "object": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/Actions.swift.o",
+    "swiftmodule": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/Actions~partial.swiftmodule",
+    "swift-dependencies": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/Actions.swiftdeps",
+    "diagnostics": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/Actions.dia"
+  },
+  "/Users/anicolae/code/axon/Sources/axon/AppDiscovery.swift": {
+    "object": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/AppDiscovery.swift.o",
+    "swiftmodule": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/AppDiscovery~partial.swiftmodule",
+    "swift-dependencies": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/AppDiscovery.swiftdeps",
+    "diagnostics": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/AppDiscovery.dia"
+  },
+  "/Users/anicolae/code/axon/Sources/axon/Models.swift": {
+    "object": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/Models.swift.o",
+    "swiftmodule": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/Models~partial.swiftmodule",
+    "swift-dependencies": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/Models.swiftdeps",
+    "diagnostics": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/Models.dia"
+  },
+  "/Users/anicolae/code/axon/Sources/axon/Screenshot.swift": {
+    "object": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/Screenshot.swift.o",
+    "swiftmodule": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/Screenshot~partial.swiftmodule",
+    "swift-dependencies": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/Screenshot.swiftdeps",
+    "diagnostics": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/Screenshot.dia"
+  },
+  "/Users/anicolae/code/axon/Sources/axon/main.swift": {
+    "object": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/main.swift.o",
+    "swiftmodule": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/main.swiftdeps",
+    "diagnostics": "/Users/anicolae/code/axon/.build/arm64-apple-macosx/release/axon.build/main.dia"
+  }
+}

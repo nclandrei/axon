@@ -1,0 +1,211 @@
+# axon
+
+macOS Accessibility CLI for AI agent workflows.
+
+## The Problem
+
+AI agents can't reliably drive macOS apps. AppleScript is fragile and unreliable. The macOS Accessibility API (AXUIElement) is actually solid and well-maintained — but nobody has wrapped it in a clean CLI that agents can call over SSH.
+
+axon fixes this. It's the equivalent of Playwright for web or XCUITest for iOS, but for native macOS apps running in a VM or secondary user session.
+
+## Install
+
+Build from source (requires macOS 14+ and Xcode 15+):
+
+```bash
+git clone <repo>
+cd axon
+swift build -c release
+cp .build/release/axon /usr/local/bin/axon
+```
+
+Or use the Makefile:
+
+```bash
+make install
+```
+
+No external dependencies — only Cocoa and CoreGraphics frameworks.
+
+## How Agents Use This
+
+axon follows the [rodney](https://github.com/simonw/rodney)/[showboat](https://github.com/simonw/showboat) pattern: a single `--help` gives the AI agent everything it needs — all commands, all flags, element targeting rules, exit codes, output format, and full workflow examples.
+
+```bash
+axon --help              # comprehensive reference — all commands, flags, and examples
+axon tree --help         # per-command details if needed
+```
+
+No MCP server needed — the CLI is the interface.
+
+## Agent Workflow
+
+```bash
+# 1. Launch the app
+axon launch --name TextEdit
+
+# 2. Read the UI state
+axon tree --app TextEdit --compact
+
+# 3. Visually verify
+axon screenshot --app TextEdit
+
+# 4. Interact
+axon click --app TextEdit --label "Save"
+axon type --app TextEdit --path "AXWindow[0]/AXScrollArea[0]/AXTextArea[0]" --text "Hello"
+
+# 5. Wait for async UI
+axon wait --app TextEdit --label "Saved" --appear --timeout 5
+
+# 6. Close when done
+axon close --app TextEdit --quit
+```
+
+All over SSH into a Tart VM or secondary user session.
+
+## Commands
+
+All commands output JSON to stdout. Errors go to stderr with non-zero exit codes.
+Run `axon <command> --help` for full details on any command.
+
+### list
+
+List all running GUI apps.
+
+```bash
+axon list
+```
+
+### launch
+
+Launch an app by name, bundle ID, or path. Waits up to 5s for it to start.
+
+```bash
+axon launch --name TextEdit
+axon launch --bundle-id com.apple.Safari
+axon launch --path /Applications/Xcode.app
+```
+
+### tree
+
+Dump the accessibility tree as JSON. Each node gets a `path` field for stable addressing.
+
+```bash
+axon tree --app Finder --compact
+axon tree --app Finder --depth 3
+```
+
+### click
+
+Click a UI element. Activates the app first.
+
+```bash
+axon click --app MyApp --identifier saveButton
+axon click --app MyApp --label "Save"
+axon click --app MyApp --path "AXWindow[0]/AXGroup[0]/AXButton[2]"
+```
+
+### type
+
+Type text into a field. Direct value set, falls back to keyboard events.
+
+```bash
+axon type --app TextEdit --path "AXWindow[0]/AXScrollArea[0]/AXTextArea[0]" --text "Hello"
+axon type --app MyApp --identifier searchField --text "query" --clear
+```
+
+### scroll
+
+Scroll within an element.
+
+```bash
+axon scroll --app Safari --path "AXWindow[0]/AXScrollArea[0]" --direction down --amount 10
+```
+
+### screenshot
+
+Capture a window or full screen as PNG at Retina resolution.
+
+```bash
+axon screenshot --app Finder
+axon screenshot --app Xcode --window "MyProject" --output ~/Desktop/shot.png
+axon screenshot --app Finder --full-screen
+```
+
+### activate
+
+Bring an app to the front.
+
+```bash
+axon activate --app Finder
+```
+
+### close
+
+Close a window or quit an app.
+
+```bash
+axon close --app TextEdit                    # close frontmost window
+axon close --app Xcode --window "MyProject"  # close specific window
+axon close --app TextEdit --quit             # quit entirely
+```
+
+### wait
+
+Wait for an element to appear or disappear. Polls every 200ms.
+
+```bash
+axon wait --app MyApp --identifier loadingSpinner --disappear --timeout 30
+axon wait --app MyApp --label "Welcome" --appear
+```
+
+## Error Handling
+
+Errors include context to help agents self-correct:
+
+```json
+{
+  "error": "element_not_found",
+  "message": "No element with identifier 'saveBtn' found in MyApp",
+  "available": ["cancelBtn", "submitBtn", "AXButton:OK"]
+}
+```
+
+## Element Selection Priority
+
+1. **Accessibility identifier** — fastest and most stable
+2. **Exact title/label match**
+3. **Case-insensitive contains match** on title/label
+4. **Tree path** — structural addressing like `AXWindow[0]/AXGroup[1]/AXButton[0]`
+
+When multiple elements match, enabled elements are preferred.
+
+## Accessibility Permissions
+
+Add your terminal app to **System Settings > Privacy & Security > Accessibility**.
+
+For VMs: grant permissions to the SSH server process (`sshd`).
+
+## Recommended VM Setup
+
+Use [Tart](https://github.com/cirruslabs/tart) for headless macOS VMs on Apple Silicon:
+
+```bash
+tart create --from-ipsw latest myvm
+tart run myvm
+ssh admin@$(tart ip myvm)
+```
+
+## Architecture
+
+```
+Sources/axon/
+├── main.swift          CLI entry, comprehensive --help, command dispatch
+├── Models.swift        AXNode and Codable JSON output types
+├── AXHelpers.swift     AXUIElement wrappers, tree walking, element finding
+├── AppDiscovery.swift  Find running apps by name or bundle ID
+├── Actions.swift       launch, click, type, scroll, activate, close, wait
+└── Screenshot.swift    CGWindowListCreateImage capture
+```
+
+No external dependencies. Pure Swift with Cocoa and CoreGraphics. Swift Package Manager.
