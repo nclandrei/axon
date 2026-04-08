@@ -1,45 +1,6 @@
 import Foundation
 import Cocoa
-
-// MARK: - CLI Argument Parsing
-
-/// Simple argument parser — no external dependencies
-struct CLI {
-    let args: [String]
-    let command: String?
-
-    init() {
-        let all = CommandLine.arguments
-        self.args = Array(all.dropFirst()) // drop executable path
-        self.command = self.args.first
-    }
-
-    func flag(_ name: String) -> Bool {
-        args.contains("--\(name)")
-    }
-
-    func hasHelp() -> Bool {
-        args.contains("--help") || args.contains("-h")
-    }
-
-    func option(_ name: String) -> String? {
-        guard let idx = args.firstIndex(of: "--\(name)"), idx + 1 < args.count else { return nil }
-        return args[idx + 1]
-    }
-
-    func intOption(_ name: String, default defaultValue: Int) -> Int {
-        guard let val = option(name), let num = Int(val) else { return defaultValue }
-        return num
-    }
-
-    func requireOption(_ name: String) -> String {
-        guard let val = option(name) else {
-            printError(code: "missing_option", message: "--\(name) is required")
-            exit(1)
-        }
-        return val
-    }
-}
+import AxonLib
 
 // MARK: - Help Text
 // Single comprehensive help following the rodney/showboat pattern:

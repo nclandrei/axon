@@ -5,7 +5,7 @@ import CoreGraphics
 // MARK: - Launch
 
 /// Launch an app by name, bundle ID, or path. Waits up to 5s for it to start.
-func launchApp(name: String?, bundleID: String?, path: String?) -> NSRunningApplication? {
+public func launchApp(name: String?, bundleID: String?, path: String?) -> NSRunningApplication? {
     let workspace = NSWorkspace.shared
 
     if let path = path {
@@ -60,7 +60,7 @@ private func waitForApp(bundleID: String?, name: String?, timeout: TimeInterval)
 // MARK: - Activate
 
 @discardableResult
-func activateApp(_ app: NSRunningApplication) -> Bool {
+public func activateApp(_ app: NSRunningApplication) -> Bool {
     app.activate(options: [.activateIgnoringOtherApps])
     // Give the system a moment to bring it forward
     usleep(100_000) // 100ms
@@ -70,7 +70,7 @@ func activateApp(_ app: NSRunningApplication) -> Bool {
 // MARK: - Close / Quit
 
 /// Quit an app entirely
-func quitApp(_ app: NSRunningApplication) -> Bool {
+public func quitApp(_ app: NSRunningApplication) -> Bool {
     app.terminate()
     // Wait briefly to confirm
     usleep(500_000) // 500ms
@@ -78,7 +78,7 @@ func quitApp(_ app: NSRunningApplication) -> Bool {
 }
 
 /// Close a specific window (or the frontmost window) via AX
-func closeWindow(axApp: AXUIElement, windowTitle: String?) -> Bool {
+public func closeWindow(axApp: AXUIElement, windowTitle: String?) -> Bool {
     let windows: [AXUIElement] = axAttribute(axApp, kAXWindowsAttribute as String) ?? []
 
     let target: AXUIElement?
@@ -107,19 +107,19 @@ func closeWindow(axApp: AXUIElement, windowTitle: String?) -> Bool {
 
 // MARK: - Click
 
-func performClick(element: AXUIElement) -> Bool {
+public func performClick(element: AXUIElement) -> Bool {
     let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
     return result == .success
 }
 
 // MARK: - Type / Set Value
 
-enum TypeMethod: String {
+public enum TypeMethod: String {
     case direct
     case keyboard
 }
 
-func performType(element: AXUIElement, text: String, clear: Bool) -> TypeMethod? {
+public func performType(element: AXUIElement, text: String, clear: Bool) -> TypeMethod? {
     // Focus the element first
     AXUIElementSetAttributeValue(element, kAXFocusedAttribute as CFString, true as CFTypeRef)
     usleep(50_000) // 50ms for focus to take
@@ -169,7 +169,7 @@ private func typeViaKeyboard(text: String) -> Bool {
 
 // MARK: - Scroll
 
-func performScroll(element: AXUIElement, direction: ScrollDirection, amount: Int32) {
+public func performScroll(element: AXUIElement, direction: ScrollDirection, amount: Int32) {
     // Get the element's position to target the scroll
     guard let pos = axPointAttribute(element), let sz = axSizeAttribute(element) else {
         // Fall back to center of screen
@@ -183,7 +183,7 @@ func performScroll(element: AXUIElement, direction: ScrollDirection, amount: Int
     performScrollAt(x: x, y: y, direction: direction, amount: amount)
 }
 
-enum ScrollDirection: String {
+public enum ScrollDirection: String {
     case up, down, left, right
 }
 
@@ -218,7 +218,7 @@ private func performScrollAt(x: Double, y: Double, direction: ScrollDirection, a
 
 // MARK: - Wait
 
-func performWait(appElement: AXUIElement, selector: ElementSelector, appear: Bool, timeout: TimeInterval) -> Int? {
+public func performWait(appElement: AXUIElement, selector: ElementSelector, appear: Bool, timeout: TimeInterval) -> Int? {
     let startTime = Date()
     let pollInterval: useconds_t = 200_000 // 200ms
 

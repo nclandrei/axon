@@ -3,7 +3,7 @@ import Cocoa
 // MARK: - App Discovery
 
 /// Find a running app by name or bundle ID
-func findApp(name: String) -> NSRunningApplication? {
+public func findApp(name: String) -> NSRunningApplication? {
     let workspace = NSWorkspace.shared
     let apps = workspace.runningApplications.filter { $0.activationPolicy == .regular }
 
@@ -31,12 +31,12 @@ func findApp(name: String) -> NSRunningApplication? {
 }
 
 /// Get the AXUIElement for an app
-func appElement(for app: NSRunningApplication) -> AXUIElement {
+public func appElement(for app: NSRunningApplication) -> AXUIElement {
     AXUIElementCreateApplication(app.processIdentifier)
 }
 
 /// List all running GUI apps
-func listApps() -> [AppInfo] {
+public func listApps() -> [AppInfo] {
     let workspace = NSWorkspace.shared
     return workspace.runningApplications
         .filter { $0.activationPolicy == .regular }
@@ -52,7 +52,7 @@ func listApps() -> [AppInfo] {
 }
 
 /// Resolve app by name, printing error and exiting if not found
-func resolveApp(name: String) -> (NSRunningApplication, AXUIElement) {
+public func resolveApp(name: String) -> (NSRunningApplication, AXUIElement) {
     guard let app = findApp(name: name) else {
         let available = listApps().map { $0.name }
         printError(
@@ -66,7 +66,7 @@ func resolveApp(name: String) -> (NSRunningApplication, AXUIElement) {
 }
 
 /// Resolve an element selector from CLI arguments, printing error and exiting if not found
-func resolveElement(appElement: AXUIElement, identifier: String?, label: String?, path: String?, appName: String) -> FoundElement {
+public func resolveElement(appElement: AXUIElement, identifier: String?, label: String?, path: String?, appName: String) -> FoundElement {
     let selector: ElementSelector
     if let id = identifier {
         selector = .identifier(id)

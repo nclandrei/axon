@@ -3,7 +3,7 @@ import ApplicationServices
 
 // MARK: - Accessibility Permission Check
 
-func checkAccessibilityPermission() {
+public func checkAccessibilityPermission() {
     guard AXIsProcessTrusted() else {
         printError(
             code: "accessibility_not_trusted",
@@ -15,18 +15,18 @@ func checkAccessibilityPermission() {
 
 // MARK: - AXUIElement Attribute Helpers
 
-func axAttribute<T>(_ element: AXUIElement, _ attribute: String) -> T? {
+public func axAttribute<T>(_ element: AXUIElement, _ attribute: String) -> T? {
     var value: AnyObject?
     let result = AXUIElementCopyAttributeValue(element, attribute as CFString, &value)
     guard result == .success else { return nil }
     return value as? T
 }
 
-func axStringAttribute(_ element: AXUIElement, _ attribute: String) -> String? {
+public func axStringAttribute(_ element: AXUIElement, _ attribute: String) -> String? {
     axAttribute(element, attribute)
 }
 
-func axBoolAttribute(_ element: AXUIElement, _ attribute: String) -> Bool? {
+public func axBoolAttribute(_ element: AXUIElement, _ attribute: String) -> Bool? {
     var value: AnyObject?
     let result = AXUIElementCopyAttributeValue(element, attribute as CFString, &value)
     guard result == .success else { return nil }
@@ -36,7 +36,7 @@ func axBoolAttribute(_ element: AXUIElement, _ attribute: String) -> Bool? {
     return value as? Bool
 }
 
-func axPointAttribute(_ element: AXUIElement) -> AXPoint? {
+public func axPointAttribute(_ element: AXUIElement) -> AXPoint? {
     var value: AnyObject?
     let result = AXUIElementCopyAttributeValue(element, kAXPositionAttribute as String as CFString, &value)
     guard result == .success, let val = value else { return nil }
@@ -47,7 +47,7 @@ func axPointAttribute(_ element: AXUIElement) -> AXPoint? {
     return nil
 }
 
-func axSizeAttribute(_ element: AXUIElement) -> AXSize? {
+public func axSizeAttribute(_ element: AXUIElement) -> AXSize? {
     var value: AnyObject?
     let result = AXUIElementCopyAttributeValue(element, kAXSizeAttribute as String as CFString, &value)
     guard result == .success, let val = value else { return nil }
@@ -58,7 +58,7 @@ func axSizeAttribute(_ element: AXUIElement) -> AXSize? {
     return nil
 }
 
-func axChildren(_ element: AXUIElement) -> [AXUIElement] {
+public func axChildren(_ element: AXUIElement) -> [AXUIElement] {
     var value: AnyObject?
     let result = AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as String as CFString, &value)
     guard result == .success, let children = value as? [AXUIElement] else { return [] }
@@ -68,7 +68,7 @@ func axChildren(_ element: AXUIElement) -> [AXUIElement] {
 // MARK: - Tree Building
 
 /// Build an AXNode tree from an AXUIElement
-func buildTree(element: AXUIElement, depth: Int, maxDepth: Int, path: String) -> AXNode {
+public func buildTree(element: AXUIElement, depth: Int, maxDepth: Int, path: String) -> AXNode {
     let role: String? = axStringAttribute(element, kAXRoleAttribute as String)
     let subrole: String? = axStringAttribute(element, kAXSubroleAttribute as String)
     let title: String? = axStringAttribute(element, kAXTitleAttribute as String)
@@ -122,21 +122,28 @@ func buildTree(element: AXUIElement, depth: Int, maxDepth: Int, path: String) ->
 
 // MARK: - Element Finding
 
-enum ElementSelector {
+public enum ElementSelector {
     case identifier(String)
     case label(String)
     case path(String)
 }
 
-struct FoundElement {
-    let element: AXUIElement
-    let role: String?
-    let title: String?
-    let identifier: String?
+public struct FoundElement {
+    public let element: AXUIElement
+    public let role: String?
+    public let title: String?
+    public let identifier: String?
+
+    public init(element: AXUIElement, role: String?, title: String?, identifier: String?) {
+        self.element = element
+        self.role = role
+        self.title = title
+        self.identifier = identifier
+    }
 }
 
 /// Find an element in the accessibility tree by selector
-func findElement(root: AXUIElement, selector: ElementSelector) -> FoundElement? {
+public func findElement(root: AXUIElement, selector: ElementSelector) -> FoundElement? {
     switch selector {
     case .path(let path):
         return findByPath(root: root, path: path)
@@ -167,29 +174,50 @@ func findElement(root: AXUIElement, selector: ElementSelector) -> FoundElement? 
     }
 }
 
+/// Parse a tree path string like "AXWindow[0]/AXGroup[1]/AXButton[0]" into components
+public struct PathComponent {
+    public let role: String
+    public let index: Int
+
+    public init?(from string: String) {
+        guard let bracketStart = string.firstIndex(of: "["),
+              let bracketEnd = string.firstIndex(of: "]") else {
+            return nil
+        }
+        self.role = String(string[string.startIndex..<bracketStart])
+        guard let idx = Int(string[string.index(after: bracketStart)..<bracketEnd]) else {
+            return nil
+        }
+        self.index = idx
+    }
+}
+
+/// Parse a full path string into components
+public func parseTreePath(_ path: String) -> [PathComponent]? {
+    let parts = path.split(separator: "/").map(String.init)
+    var components: [PathComponent] = []
+    for part in parts {
+        guard let component = PathComponent(from: part) else {
+            return nil
+        }
+        components.append(component)
+    }
+    return components
+}
+
 /// Find element by tree path like "AXWindow[0]/AXGroup[1]/AXButton[0]"
 private func findByPath(root: AXUIElement, path: String) -> FoundElement? {
-    let components = path.split(separator: "/").map(String.init)
+    guard let components = parseTreePath(path) else { return nil }
+
     var current = root
-
     for component in components {
-        // Parse "role[index]"
-        guard let bracketStart = component.firstIndex(of: "["),
-              let bracketEnd = component.firstIndex(of: "]") else {
-            return nil
-        }
-        let role = String(component[component.startIndex..<bracketStart])
-        guard let index = Int(component[component.index(after: bracketStart)..<bracketEnd]) else {
-            return nil
-        }
-
         let children = axChildren(current)
         var roleCount = 0
         var found = false
         for child in children {
             let childRole = axStringAttribute(child, kAXRoleAttribute as String) ?? "unknown"
-            if childRole == role {
-                if roleCount == index {
+            if childRole == component.role {
+                if roleCount == component.index {
                     current = child
                     found = true
                     break
@@ -249,7 +277,7 @@ private func collectMatches(element: AXUIElement, attribute: String, value: Stri
 }
 
 /// Collect identifiers and labels near the root (for error messages)
-func collectAvailableIdentifiers(root: AXUIElement, maxDepth: Int = 5, limit: Int = 20) -> [String] {
+public func collectAvailableIdentifiers(root: AXUIElement, maxDepth: Int = 5, limit: Int = 20) -> [String] {
     var result: [String] = []
     collectIdentifiersRecursive(element: root, depth: 0, maxDepth: maxDepth, limit: limit, result: &result)
     return result

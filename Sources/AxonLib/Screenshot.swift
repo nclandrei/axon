@@ -4,7 +4,7 @@ import CoreGraphics
 // MARK: - Screenshot
 
 /// Capture a screenshot of an app's window or the full screen
-func captureScreenshot(app: NSRunningApplication, outputPath: String, fullScreen: Bool, windowTitle: String?) -> ScreenshotOutput? {
+public func captureScreenshot(app: NSRunningApplication, outputPath: String, fullScreen: Bool, windowTitle: String?) -> ScreenshotOutput? {
     let pid = app.processIdentifier
 
     if fullScreen {

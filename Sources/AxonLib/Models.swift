@@ -1,0 +1,298 @@
+import Foundation
+
+// MARK: - Output Models
+
+/// Represents a node in the accessibility tree
+public struct AXNode: Codable {
+    public let role: String?
+    public let subrole: String?
+    public let title: String?
+    public let identifier: String?
+    public let label: String?
+    public let value: String?
+    public let enabled: Bool?
+    public let focused: Bool?
+    public let position: AXPoint?
+    public let size: AXSize?
+    public let path: String
+    public let children: [AXNode]?
+
+    public init(role: String?, subrole: String?, title: String?, identifier: String?, label: String?, value: String?, enabled: Bool?, focused: Bool?, position: AXPoint?, size: AXSize?, path: String, children: [AXNode]?) {
+        self.role = role
+        self.subrole = subrole
+        self.title = title
+        self.identifier = identifier
+        self.label = label
+        self.value = value
+        self.enabled = enabled
+        self.focused = focused
+        self.position = position
+        self.size = size
+        self.path = path
+        self.children = children
+    }
+
+    /// Returns a compact version with null fields and position/size omitted
+    public func compacted() -> CompactAXNode {
+        CompactAXNode(
+            role: role,
+            subrole: subrole,
+            title: title,
+            identifier: identifier,
+            label: label,
+            value: value,
+            enabled: enabled,
+            focused: focused,
+            path: path,
+            children: children?.map { $0.compacted() }
+        )
+    }
+}
+
+public struct CompactAXNode: Codable {
+    public let role: String?
+    public let subrole: String?
+    public let title: String?
+    public let identifier: String?
+    public let label: String?
+    public let value: String?
+    public let enabled: Bool?
+    public let focused: Bool?
+    public let path: String
+    public let children: [CompactAXNode]?
+
+    public init(role: String?, subrole: String?, title: String?, identifier: String?, label: String?, value: String?, enabled: Bool?, focused: Bool?, path: String, children: [CompactAXNode]?) {
+        self.role = role
+        self.subrole = subrole
+        self.title = title
+        self.identifier = identifier
+        self.label = label
+        self.value = value
+        self.enabled = enabled
+        self.focused = focused
+        self.path = path
+        self.children = children
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if let role = role { try container.encode(role, forKey: .role) }
+        if let subrole = subrole { try container.encode(subrole, forKey: .subrole) }
+        if let title = title { try container.encode(title, forKey: .title) }
+        if let identifier = identifier { try container.encode(identifier, forKey: .identifier) }
+        if let label = label { try container.encode(label, forKey: .label) }
+        if let value = value { try container.encode(value, forKey: .value) }
+        if let enabled = enabled { try container.encode(enabled, forKey: .enabled) }
+        if let focused = focused { try container.encode(focused, forKey: .focused) }
+        try container.encode(path, forKey: .path)
+        if let children = children, !children.isEmpty {
+            try container.encode(children, forKey: .children)
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case role, subrole, title, identifier, label, value, enabled, focused, path, children
+    }
+}
+
+public struct AXPoint: Codable {
+    public let x: Double
+    public let y: Double
+
+    public init(x: Double, y: Double) {
+        self.x = x
+        self.y = y
+    }
+}
+
+public struct AXSize: Codable {
+    public let width: Double
+    public let height: Double
+
+    public init(width: Double, height: Double) {
+        self.width = width
+        self.height = height
+    }
+}
+
+// MARK: - App Info
+
+public struct AppInfo: Codable {
+    public let name: String
+    public let bundleID: String?
+    public let pid: Int32
+
+    public init(name: String, bundleID: String?, pid: Int32) {
+        self.name = name
+        self.bundleID = bundleID
+        self.pid = pid
+    }
+}
+
+// MARK: - Command Output Models
+
+public struct ListOutput: Codable {
+    public let apps: [AppInfo]
+
+    public init(apps: [AppInfo]) {
+        self.apps = apps
+    }
+}
+
+public struct TreeOutput: Codable {
+    public let app: String
+    public let pid: Int32
+    public let tree: AXNode
+
+    public init(app: String, pid: Int32, tree: AXNode) {
+        self.app = app
+        self.pid = pid
+        self.tree = tree
+    }
+}
+
+public struct CompactTreeOutput: Codable {
+    public let app: String
+    public let pid: Int32
+    public let tree: CompactAXNode
+
+    public init(app: String, pid: Int32, tree: CompactAXNode) {
+        self.app = app
+        self.pid = pid
+        self.tree = tree
+    }
+}
+
+public struct ClickOutput: Codable {
+    public let success: Bool
+    public let element: ElementInfo
+
+    public init(success: Bool, element: ElementInfo) {
+        self.success = success
+        self.element = element
+    }
+}
+
+public struct TypeOutput: Codable {
+    public let success: Bool
+    public let method: String
+
+    public init(success: Bool, method: String) {
+        self.success = success
+        self.method = method
+    }
+}
+
+public struct ScrollOutput: Codable {
+    public let success: Bool
+
+    public init(success: Bool) {
+        self.success = success
+    }
+}
+
+public struct ScreenshotOutput: Codable {
+    public let success: Bool
+    public let path: String
+    public let width: Int
+    public let height: Int
+
+    public init(success: Bool, path: String, width: Int, height: Int) {
+        self.success = success
+        self.path = path
+        self.width = width
+        self.height = height
+    }
+}
+
+public struct ActivateOutput: Codable {
+    public let success: Bool
+
+    public init(success: Bool) {
+        self.success = success
+    }
+}
+
+public struct LaunchOutput: Codable {
+    public let success: Bool
+    public let name: String
+    public let bundleID: String?
+    public let pid: Int32
+
+    public init(success: Bool, name: String, bundleID: String?, pid: Int32) {
+        self.success = success
+        self.name = name
+        self.bundleID = bundleID
+        self.pid = pid
+    }
+}
+
+public struct CloseOutput: Codable {
+    public let success: Bool
+    public let action: String // "quit" or "close_window"
+
+    public init(success: Bool, action: String) {
+        self.success = success
+        self.action = action
+    }
+}
+
+public struct WaitOutput: Codable {
+    public let success: Bool
+    public let elapsed_ms: Int
+
+    public init(success: Bool, elapsed_ms: Int) {
+        self.success = success
+        self.elapsed_ms = elapsed_ms
+    }
+}
+
+public struct ElementInfo: Codable {
+    public let role: String?
+    public let title: String?
+    public let identifier: String?
+
+    public init(role: String?, title: String?, identifier: String?) {
+        self.role = role
+        self.title = title
+        self.identifier = identifier
+    }
+}
+
+// MARK: - Error Output
+
+public struct ErrorOutput: Codable {
+    public let error: String
+    public let message: String
+    public let available: [String]?
+
+    public init(error: String, message: String, available: [String]?) {
+        self.error = error
+        self.message = message
+        self.available = available
+    }
+}
+
+// MARK: - JSON Helpers
+
+public let jsonEncoder: JSONEncoder = {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    return encoder
+}()
+
+public func printJSON<T: Encodable>(_ value: T) {
+    guard let data = try? jsonEncoder.encode(value) else {
+        printError(code: "encoding_error", message: "Failed to encode output as JSON")
+        return
+    }
+    print(String(data: data, encoding: .utf8)!)
+}
+
+public func printError(code: String, message: String, available: [String]? = nil) {
+    let err = ErrorOutput(error: code, message: message, available: available)
+    if let data = try? jsonEncoder.encode(err) {
+        FileHandle.standardError.write(data)
+        FileHandle.standardError.write("\n".data(using: .utf8)!)
+    }
+}
