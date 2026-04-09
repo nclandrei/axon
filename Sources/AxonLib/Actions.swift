@@ -227,6 +227,55 @@ private func typeViaKeyboard(text: String) -> Bool {
     return true
 }
 
+// MARK: - Drag
+
+public func performDrag(fromElement: AXUIElement, toElement: AXUIElement, duration: Double = 0.5) -> Bool {
+    guard let fromPos = axPointAttribute(fromElement), let fromSz = axSizeAttribute(fromElement),
+          let toPos = axPointAttribute(toElement), let toSz = axSizeAttribute(toElement) else {
+        return false
+    }
+
+    let fromPoint = CGPoint(x: fromPos.x + fromSz.width / 2, y: fromPos.y + fromSz.height / 2)
+    let toPoint = CGPoint(x: toPos.x + toSz.width / 2, y: toPos.y + toSz.height / 2)
+
+    return performDragBetweenPoints(from: fromPoint, to: toPoint, duration: duration)
+}
+
+private func performDragBetweenPoints(from: CGPoint, to: CGPoint, duration: Double) -> Bool {
+    guard let moveEvent = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: from, mouseButton: .left) else {
+        return false
+    }
+    moveEvent.post(tap: .cghidEventTap)
+    usleep(100_000)
+
+    guard let mouseDown = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: from, mouseButton: .left) else {
+        return false
+    }
+    mouseDown.post(tap: .cghidEventTap)
+    usleep(100_000)
+
+    let steps = 20
+    for i in 1...steps {
+        let t = Double(i) / Double(steps)
+        let x = from.x + (to.x - from.x) * t
+        let y = from.y + (to.y - from.y) * t
+        let point = CGPoint(x: x, y: y)
+
+        guard let dragEvent = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: point, mouseButton: .left) else {
+            continue
+        }
+        dragEvent.post(tap: .cghidEventTap)
+        usleep(UInt32(duration / Double(steps) * 1_000_000))
+    }
+
+    guard let mouseUp = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: to, mouseButton: .left) else {
+        return false
+    }
+    mouseUp.post(tap: .cghidEventTap)
+
+    return true
+}
+
 // MARK: - Key Press
 
 /// Map of key names to virtual key codes

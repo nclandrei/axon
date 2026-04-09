@@ -398,6 +398,20 @@ public struct MenuListOutput: Codable {
     }
 }
 
+// MARK: - DragOutput
+
+public struct DragOutput: Codable {
+    public let success: Bool
+    public let from: ElementInfo
+    public let to: ElementInfo
+
+    public init(success: Bool, from: ElementInfo, to: ElementInfo) {
+        self.success = success
+        self.from = from
+        self.to = to
+    }
+}
+
 // MARK: - MoveResizeOutput
 
 public struct MoveResizeOutput: Codable {

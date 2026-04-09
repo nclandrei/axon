@@ -414,4 +414,120 @@ final class CLIIntegrationTests: XCTestCase {
         let errorCode = json?["error"] as? String
         XCTAssertNotNil(errorCode, "Error JSON should have 'error' field")
     }
+
+    // MARK: - move-resize
+
+    func testMoveResizeHelp_exits0() {
+        let result = runAxon(["move-resize", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon move-resize"))
+    }
+
+    func testMoveResizeMissingApp_exits1() {
+        let result = runAxon(["move-resize"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    func testMoveResizeMissingDimensions_exits1() {
+        let result = runAxon(["move-resize", "--app", "Finder"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+        let msg = json?["message"] as? String ?? ""
+        XCTAssertTrue(msg.contains("--x") || msg.contains("--y") || msg.contains("--width") || msg.contains("--height"))
+    }
+
+    // MARK: - clipboard
+
+    func testClipboardHelp_exits0() {
+        let result = runAxon(["clipboard", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon clipboard"))
+    }
+
+    func testClipboardMissingMode_exits1() {
+        let result = runAxon(["clipboard"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    func testClipboardSetMissingText_exits1() {
+        let result = runAxon(["clipboard", "--set"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    func testClipboardGet_exits0() {
+        let result = runAxon(["clipboard", "--get"])
+        XCTAssertEqual(result.exitCode, 0)
+        let json = parseJSON(result.stdout)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["success"] as? Bool, true)
+        XCTAssertTrue(json?.keys.contains("text") == true)
+    }
+
+    func testClipboardSetThenGet_roundTrip() {
+        let testText = "axon-test-\(UUID().uuidString)"
+        let setResult = runAxon(["clipboard", "--set", "--text", testText])
+        XCTAssertEqual(setResult.exitCode, 0)
+        let setJSON = parseJSON(setResult.stdout)
+        XCTAssertEqual(setJSON?["success"] as? Bool, true)
+        let getResult = runAxon(["clipboard", "--get"])
+        XCTAssertEqual(getResult.exitCode, 0)
+        let getJSON = parseJSON(getResult.stdout)
+        XCTAssertEqual(getJSON?["success"] as? Bool, true)
+        XCTAssertEqual(getJSON?["text"] as? String, testText)
+    }
+
+    // MARK: - wait-for-value
+
+    func testWaitForValueHelp_exits0() {
+        let result = runAxon(["wait-for-value", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon wait-for-value"))
+    }
+
+    func testWaitForValueMissingApp_exits1() {
+        let result = runAxon(["wait-for-value"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    func testWaitForValueMissingSelector_exits1() {
+        let result = runAxon(["wait-for-value", "--app", "Finder"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["error"] as? String, "missing_selector")
+    }
+
+    // MARK: - help dispatches for new commands
+
+    func testHelpMoveResize_exits0() {
+        let result = runAxon(["help", "move-resize"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon move-resize"))
+    }
+
+    func testHelpClipboard_exits0() {
+        let result = runAxon(["help", "clipboard"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon clipboard"))
+    }
+
+    func testHelpWaitForValue_exits0() {
+        let result = runAxon(["help", "wait-for-value"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon wait-for-value"))
+    }
 }

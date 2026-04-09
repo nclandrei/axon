@@ -190,6 +190,44 @@ On failure, "available" lists nearby identifiers to help retry:
   {"error": "element_not_found", "message": "...", "available": ["cancelBtn", "submitBtn"]}
 """
 
+let helpDrag = """
+axon drag - Drag from one element to another
+
+  --app <name>        App name or bundle ID (required)
+  --from-identifier <id>    Source element by identifier
+  --from-label <text>       Source element by label
+  --from-path <path>        Source element by tree path
+  --to-identifier <id>      Destination element by identifier
+  --to-label <text>         Destination element by label
+  --to-path <path>          Destination element by tree path
+  --duration <seconds>      Drag duration in seconds (default: 0.5)
+
+Performs a smooth mouse drag from the source to the destination element.
+
+  axon drag --app Finder --from-label "file.txt" --to-label "Documents"
+
+Output:
+  {"success": true, "from": {"role": "AXCell", ...}, "to": {"role": "AXGroup", ...}}
+"""
+
+let helpKey = """
+axon key - Press a key with optional modifiers
+
+  --app <name>        App name or bundle ID (required)
+  --key <name>        Key to press (required): return, tab, escape, space,
+                      delete, up, down, left, right, f1-f12, a-z, 0-9, etc.
+  --modifiers <mods>  Modifier keys separated by +: cmd, shift, alt, ctrl, fn
+
+  axon key --app TextEdit --key c --modifiers cmd          # Copy
+  axon key --app TextEdit --key v --modifiers cmd          # Paste
+  axon key --app TextEdit --key z --modifiers cmd+shift    # Redo
+  axon key --app TextEdit --key return                     # Enter
+  axon key --app Finder --key a --modifiers cmd            # Select All
+
+Output:
+  {"success": true, "key": "c", "modifiers": ["cmd"]}
+"""
+
 let helpDoubleClick = """
 axon double-click - Double-click a UI element
 
@@ -487,7 +525,9 @@ func showHelp(for command: String?) {
     case "click":       text = helpClick
     case "double-click": text = helpDoubleClick
     case "right-click": text = helpRightClick
+    case "drag":         text = helpDrag
     case "type":       text = helpType
+    case "key":          text = helpKey
     case "scroll":     text = helpScroll
     case "screenshot": text = helpScreenshot
     case "activate":   text = helpActivate
@@ -685,6 +725,47 @@ case "right-click":
         exit(1)
     }
 
+case "drag":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let (app, axApp) = resolveApp(name: appName)
+
+    activateApp(app)
+
+    let fromId = cli.option("from-identifier")
+    let fromLabel = cli.option("from-label")
+    let fromPath = cli.option("from-path")
+    if fromId == nil && fromLabel == nil && fromPath == nil {
+        printError(code: "missing_option", message: "Provide --from-identifier, --from-label, or --from-path for source element")
+        exit(1)
+    }
+    let fromFound = resolveElement(appElement: axApp, identifier: fromId, label: fromLabel, path: fromPath, appName: appName)
+
+    let toId = cli.option("to-identifier")
+    let toLabel = cli.option("to-label")
+    let toPath = cli.option("to-path")
+    if toId == nil && toLabel == nil && toPath == nil {
+        printError(code: "missing_option", message: "Provide --to-identifier, --to-label, or --to-path for destination element")
+        exit(1)
+    }
+    let toFound = resolveElement(appElement: axApp, identifier: toId, label: toLabel, path: toPath, appName: appName)
+
+    let duration = cli.doubleOption("duration") ?? 0.5
+
+    if performDrag(fromElement: fromFound.element, toElement: toFound.element, duration: duration) {
+        let dragOut = DragOutput(
+            success: true,
+            from: ElementInfo(role: fromFound.role, title: fromFound.title, identifier: fromFound.identifier),
+            to: ElementInfo(role: toFound.role, title: toFound.title, identifier: toFound.identifier)
+        )
+        emit(dragOut, plain: [
+            ("dragged", "from \(fromFound.title ?? fromFound.role ?? "element") to \(toFound.title ?? toFound.role ?? "element")"),
+        ])
+    } else {
+        printError(code: "drag_failed", message: "Drag failed — could not determine element positions")
+        exit(1)
+    }
+
 case "type":
     checkAccessibilityPermission()
     let appName = cli.requireOption("app")
@@ -707,6 +788,29 @@ case "type":
         emit(typeOut, plain: [("typed", "ok"), ("method", method.rawValue)])
     } else {
         printError(code: "type_failed", message: "Failed to set text on element via both direct and keyboard methods")
+        exit(1)
+    }
+
+case "key":
+    let appName = cli.requireOption("app")
+    let keyName = cli.requireOption("key")
+    let (app, _) = resolveApp(name: appName)
+
+    activateApp(app)
+
+    let modifierStr = cli.option("modifiers")
+    let flags = modifierStr.map { parseModifiers($0) } ?? CGEventFlags()
+    let modList: [String]? = modifierStr?.lowercased().split(separator: "+").map { String($0).trimmingCharacters(in: .whitespaces) }
+
+    if performKeyPress(keyName: keyName, modifiers: flags) {
+        let keyOut = KeyOutput(success: true, key: keyName.lowercased(), modifiers: modList)
+        emit(keyOut, plain: [
+            ("key", keyName.lowercased()),
+            ("modifiers", modList?.joined(separator: "+") ?? "none"),
+        ])
+    } else {
+        let available = Array(keyNameToCode.keys.sorted())
+        printError(code: "invalid_key", message: "Unknown key '\(keyName)'. See 'axon key --help' for available key names.", available: available)
         exit(1)
     }
 

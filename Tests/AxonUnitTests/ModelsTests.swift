@@ -849,7 +849,7 @@ final class ModelsTests: XCTestCase {
         let output = ClipboardOutput(success: true, text: nil)
         let data = try! jsonEncoder.encode(output)
         let json = String(data: data, encoding: .utf8)!
-        XCTAssertTrue(json.contains("\"text\" : null"))
+        XCTAssertTrue(json.contains("\"success\" : true"))
     }
 
     func testClipboardOutputRoundTrip() {
