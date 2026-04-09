@@ -132,4 +132,36 @@ final class CLITests: XCTestCase {
         let cli = CLI(args: ["scroll", "--amount", "-5"])
         XCTAssertEqual(cli.intOption("amount", default: 3), -5)
     }
+
+    // MARK: - doubleOption
+
+    func testDoubleOptionPresent() {
+        let cli = CLI(args: ["cmd", "--x", "100.5"])
+        XCTAssertEqual(cli.doubleOption("x"), 100.5)
+    }
+
+    func testDoubleOptionInteger() {
+        let cli = CLI(args: ["cmd", "--width", "800"])
+        XCTAssertEqual(cli.doubleOption("width"), 800.0)
+    }
+
+    func testDoubleOptionMissing() {
+        let cli = CLI(args: ["cmd"])
+        XCTAssertNil(cli.doubleOption("x"))
+    }
+
+    func testDoubleOptionInvalid() {
+        let cli = CLI(args: ["cmd", "--x", "abc"])
+        XCTAssertNil(cli.doubleOption("x"))
+    }
+
+    func testDoubleOptionNegative() {
+        let cli = CLI(args: ["cmd", "--y", "-50.5"])
+        XCTAssertEqual(cli.doubleOption("y"), -50.5)
+    }
+
+    func testDoubleOptionZero() {
+        let cli = CLI(args: ["cmd", "--x", "0"])
+        XCTAssertEqual(cli.doubleOption("x"), 0.0)
+    }
 }

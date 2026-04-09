@@ -190,6 +190,25 @@ On failure, "available" lists nearby identifiers to help retry:
   {"error": "element_not_found", "message": "...", "available": ["cancelBtn", "submitBtn"]}
 """
 
+let helpHover = """
+axon hover - Move the mouse cursor to an element
+
+  --app <name>        App name or bundle ID (required)
+  --identifier <id>   Match by accessibility identifier
+  --label <text>      Match by title or description
+  --path <path>       Match by tree path (from 'axon tree')
+
+Activates app and moves the mouse to the center of the target element.
+Useful for triggering hover states, tooltips, or preparing for other actions.
+
+  axon hover --app Finder --label "Documents"
+  axon hover --app MyApp --identifier menuItem
+  axon hover --app MyApp --path "AXWindow[0]/AXButton[0]"
+
+Output:
+  {"success": true, "element": {...}, "position": {"x": 500.0, "y": 300.0}}
+"""
+
 let helpDrag = """
 axon drag - Drag from one element to another
 
@@ -525,6 +544,7 @@ func showHelp(for command: String?) {
     case "click":       text = helpClick
     case "double-click": text = helpDoubleClick
     case "right-click": text = helpRightClick
+    case "hover":        text = helpHover
     case "drag":         text = helpDrag
     case "type":       text = helpType
     case "key":          text = helpKey

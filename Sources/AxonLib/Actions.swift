@@ -353,6 +353,25 @@ public func performKeyPress(keyName: String, modifiers: CGEventFlags) -> Bool {
     return true
 }
 
+// MARK: - Hover
+
+public func performHover(element: AXUIElement) -> AXPoint? {
+    guard let pos = axPointAttribute(element), let sz = axSizeAttribute(element) else {
+        return nil
+    }
+
+    let x = pos.x + sz.width / 2
+    let y = pos.y + sz.height / 2
+    let point = CGPoint(x: x, y: y)
+
+    guard let moveEvent = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left) else {
+        return nil
+    }
+    moveEvent.post(tap: .cghidEventTap)
+
+    return AXPoint(x: x, y: y)
+}
+
 // MARK: - Scroll
 
 public func performScroll(element: AXUIElement, direction: ScrollDirection, amount: Int32) {

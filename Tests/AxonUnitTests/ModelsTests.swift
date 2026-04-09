@@ -403,6 +403,37 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(decoded.modifiers, ["cmd", "shift"])
     }
 
+    // MARK: - HoverOutput
+
+    func testHoverOutputEncoding() {
+        let output = HoverOutput(
+            success: true,
+            element: ElementInfo(role: "AXButton", title: "Submit", identifier: "btn1"),
+            position: AXPoint(x: 500.0, y: 300.0)
+        )
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"Submit\""))
+        XCTAssertTrue(json.contains("500"))
+        XCTAssertTrue(json.contains("300"))
+    }
+
+    func testHoverOutputRoundTrip() {
+        let output = HoverOutput(
+            success: true,
+            element: ElementInfo(role: "AXLink", title: "Click me", identifier: nil),
+            position: AXPoint(x: 123.5, y: 456.0)
+        )
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(HoverOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.element.role, "AXLink")
+        XCTAssertEqual(decoded.element.title, "Click me")
+        XCTAssertEqual(decoded.position.x, 123.5)
+        XCTAssertEqual(decoded.position.y, 456.0)
+    }
+
     // MARK: - ScreenshotOutput
 
     func testScreenshotOutputEncoding() {

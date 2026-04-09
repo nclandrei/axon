@@ -257,6 +257,24 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertEqual(json?["error"] as? String, "missing_option")
     }
 
+    // MARK: - hover --help
+
+    func testHoverHelp_exits0() {
+        let result = runAxon(["hover", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon hover"))
+    }
+
+    // MARK: - hover missing --app
+
+    func testHoverMissingApp_exits1() {
+        let result = runAxon(["hover"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
     // MARK: - 13. type missing --app
 
     func testTypeMissingApp_exits1() {

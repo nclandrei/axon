@@ -236,6 +236,18 @@ public struct KeyOutput: Codable {
     }
 }
 
+public struct HoverOutput: Codable {
+    public let success: Bool
+    public let element: ElementInfo
+    public let position: AXPoint
+
+    public init(success: Bool, element: ElementInfo, position: AXPoint) {
+        self.success = success
+        self.element = element
+        self.position = position
+    }
+}
+
 public struct ScreenshotOutput: Codable {
     public let success: Bool
     public let path: String
