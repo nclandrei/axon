@@ -281,7 +281,99 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertEqual(json?["error"] as? String, "missing_option")
     }
 
-    // MARK: - 20. scroll invalid direction
+    // MARK: - 20. get-value --help
+
+    func testGetValueHelp_exits0() {
+        let result = runAxon(["get-value", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon get-value"))
+    }
+
+    // MARK: - 21. get-value missing --app
+
+    func testGetValueMissingApp_exits1() {
+        let result = runAxon(["get-value"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json, "stderr should be valid JSON")
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    // MARK: - 22. get-value missing selector
+
+    func testGetValueMissingSelector_exits1() {
+        let result = runAxon(["get-value", "--app", "Finder"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json, "stderr should be valid JSON")
+        XCTAssertEqual(json?["error"] as? String, "missing_selector")
+    }
+
+    // MARK: - 23. focused --help
+
+    func testFocusedHelp_exits0() {
+        let result = runAxon(["focused", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon focused"))
+    }
+
+    // MARK: - 24. focused missing --app
+
+    func testFocusedMissingApp_exits1() {
+        let result = runAxon(["focused"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json, "stderr should be valid JSON")
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    // MARK: - 25. window-info --help
+
+    func testWindowInfoHelp_exits0() {
+        let result = runAxon(["window-info", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon window-info"))
+    }
+
+    // MARK: - 26. window-info missing --app
+
+    func testWindowInfoMissingApp_exits1() {
+        let result = runAxon(["window-info"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json, "stderr should be valid JSON")
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    // MARK: - 27. menu --help
+
+    func testMenuHelp_exits0() {
+        let result = runAxon(["menu", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon menu"))
+    }
+
+    // MARK: - 28. menu missing --app
+
+    func testMenuMissingApp_exits1() {
+        let result = runAxon(["menu"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json, "stderr should be valid JSON")
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    // MARK: - 29. menu missing --path (when --list not provided)
+
+    func testMenuMissingPath_exits1() {
+        let result = runAxon(["menu", "--app", "Finder"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json, "stderr should be valid JSON")
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    // MARK: - 30. scroll invalid direction
 
     func testScrollInvalidDirection_exits1() {
         let result = runAxon(["scroll", "--app", "Finder", "--identifier", "x", "--direction", "diagonal"])

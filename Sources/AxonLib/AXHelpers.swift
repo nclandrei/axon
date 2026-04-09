@@ -276,6 +276,111 @@ private func collectMatches(element: AXUIElement, attribute: String, value: Stri
     }
 }
 
+// MARK: - Get Element Value
+
+/// Read the value/state of an accessibility element
+public func getElementValue(element: AXUIElement) -> GetValueOutput {
+    let role: String? = axStringAttribute(element, kAXRoleAttribute as String)
+    let title: String? = axStringAttribute(element, kAXTitleAttribute as String)
+    let description: String? = axStringAttribute(element, kAXDescriptionAttribute as String)
+    let enabled: Bool? = axBoolAttribute(element, kAXEnabledAttribute as String)
+    let focused: Bool? = axBoolAttribute(element, kAXFocusedAttribute as String)
+    let selected: Bool? = axBoolAttribute(element, kAXSelectedAttribute as String)
+    let selectedText: String? = axStringAttribute(element, kAXSelectedTextAttribute as String)
+
+    let value: String? = {
+        var raw: AnyObject?
+        let result = AXUIElementCopyAttributeValue(element, kAXValueAttribute as String as CFString, &raw)
+        guard result == .success, let v = raw else { return nil }
+        if let s = v as? String { return s }
+        if let n = v as? NSNumber { return n.stringValue }
+        return nil
+    }()
+
+    return GetValueOutput(
+        success: true,
+        role: role,
+        value: value,
+        title: title,
+        selectedText: selectedText,
+        enabled: enabled,
+        focused: focused,
+        selected: selected,
+        description: description
+    )
+}
+
+// MARK: - Find Focused Element
+
+/// Recursively search the tree for the focused element, tracking path
+public func findFocusedElement(root: AXUIElement, path: String) -> (element: AXUIElement, role: String?, title: String?, identifier: String?, value: String?, path: String)? {
+    let focused: Bool? = axBoolAttribute(root, kAXFocusedAttribute as String)
+    let role: String? = axStringAttribute(root, kAXRoleAttribute as String)
+
+    if focused == true {
+        let title: String? = axStringAttribute(root, kAXTitleAttribute as String)
+        let identifier: String? = axStringAttribute(root, kAXIdentifierAttribute as String)
+        let value: String? = {
+            var raw: AnyObject?
+            let result = AXUIElementCopyAttributeValue(root, kAXValueAttribute as String as CFString, &raw)
+            guard result == .success, let v = raw else { return nil }
+            if let s = v as? String { return s }
+            if let n = v as? NSNumber { return n.stringValue }
+            return nil
+        }()
+        return (element: root, role: role, title: title, identifier: identifier, value: value, path: path)
+    }
+
+    let children = axChildren(root)
+    var roleCounts: [String: Int] = [:]
+    for child in children {
+        let childRole = axStringAttribute(child, kAXRoleAttribute as String) ?? "unknown"
+        let index = roleCounts[childRole, default: 0]
+        roleCounts[childRole] = index + 1
+        let childPath = path.isEmpty ? "\(childRole)[\(index)]" : "\(path)/\(childRole)[\(index)]"
+        if let found = findFocusedElement(root: child, path: childPath) {
+            return found
+        }
+    }
+
+    return nil
+}
+
+// MARK: - Window Info
+
+/// Get info about windows of an app, optionally filtered by title
+public func getWindowInfo(axApp: AXUIElement, windowTitle: String?) -> [WindowInfo] {
+    let windows: [AXUIElement] = axAttribute(axApp, kAXWindowsAttribute as String) ?? []
+
+    var results: [WindowInfo] = []
+    for window in windows {
+        let title: String? = axStringAttribute(window, kAXTitleAttribute as String)
+
+        if let filterTitle = windowTitle {
+            guard title?.localizedCaseInsensitiveContains(filterTitle) == true else {
+                continue
+            }
+        }
+
+        let position = axPointAttribute(window)
+        let size = axSizeAttribute(window)
+        let main: Bool? = axBoolAttribute(window, kAXMainAttribute as String)
+        let minimized: Bool? = axBoolAttribute(window, kAXMinimizedAttribute as String)
+        let fullScreen: Bool? = axBoolAttribute(window, "AXFullScreen")
+
+        results.append(WindowInfo(
+            title: title,
+            position: position,
+            size: size,
+            main: main,
+            minimized: minimized,
+            fullScreen: fullScreen
+        ))
+    }
+
+    return results
+}
+
 /// Collect identifiers and labels near the root (for error messages)
 public func collectAvailableIdentifiers(root: AXUIElement, maxDepth: Int = 5, limit: Int = 20) -> [String] {
     var result: [String] = []

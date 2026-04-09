@@ -279,6 +279,89 @@ private func performScrollAt(x: Double, y: Double, direction: ScrollDirection, a
     event.post(tap: .cghidEventTap)
 }
 
+// MARK: - Menu
+
+/// Navigate and activate a menu item by path (e.g. "File > Save")
+public func performMenuAction(axApp: AXUIElement, menuPath: String) -> FoundElement? {
+    guard let menuBar: AXUIElement = axAttribute(axApp, kAXMenuBarAttribute as String) else {
+        return nil
+    }
+
+    let components = menuPath.split(separator: ">").map { $0.trimmingCharacters(in: .whitespaces) }
+    guard !components.isEmpty else { return nil }
+
+    var current: AXUIElement = menuBar
+
+    for (index, component) in components.enumerated() {
+        let children = axChildren(current)
+        var found: AXUIElement?
+
+        for child in children {
+            let title: String? = axStringAttribute(child, kAXTitleAttribute as String)
+            if let title = title, title.localizedCaseInsensitiveCompare(component) == .orderedSame {
+                found = child
+                break
+            }
+        }
+
+        guard let menuItem = found else { return nil }
+
+        let isLeaf = index == components.count - 1
+
+        if isLeaf {
+            // Activate the menu item
+            AXUIElementPerformAction(menuItem, kAXPressAction as CFString)
+            return FoundElement(
+                element: menuItem,
+                role: axStringAttribute(menuItem, kAXRoleAttribute as String),
+                title: axStringAttribute(menuItem, kAXTitleAttribute as String),
+                identifier: axStringAttribute(menuItem, kAXIdentifierAttribute as String)
+            )
+        } else {
+            // Open the submenu and descend
+            AXUIElementPerformAction(menuItem, kAXPressAction as CFString)
+            usleep(100_000) // 100ms for submenu to open
+
+            // Try to get children directly (some menus expose children after press)
+            let subChildren = axChildren(menuItem)
+            if !subChildren.isEmpty {
+                // Menu items with submenus often have a single submenu child
+                // Check if any child is a menu (AXMenu) role
+                for subChild in subChildren {
+                    let role: String? = axStringAttribute(subChild, kAXRoleAttribute as String)
+                    if role == "AXMenu" {
+                        current = subChild
+                        break
+                    }
+                }
+                // If no AXMenu child found, use the menuItem itself as parent
+                if current === menuBar || axChildren(current).isEmpty {
+                    current = menuItem
+                }
+            } else {
+                current = menuItem
+            }
+        }
+    }
+
+    return nil
+}
+
+/// List top-level menu bar items
+public func listMenuBarItems(axApp: AXUIElement) -> [String] {
+    guard let menuBar: AXUIElement = axAttribute(axApp, kAXMenuBarAttribute as String) else {
+        return []
+    }
+
+    var items: [String] = []
+    for child in axChildren(menuBar) {
+        if let title: String = axStringAttribute(child, kAXTitleAttribute as String), !title.isEmpty {
+            items.append(title)
+        }
+    }
+    return items
+}
+
 // MARK: - Wait
 
 public func performWait(appElement: AXUIElement, selector: ElementSelector, appear: Bool, timeout: TimeInterval) -> Int? {
