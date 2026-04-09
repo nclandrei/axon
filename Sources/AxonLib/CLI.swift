@@ -36,6 +36,11 @@ public struct CLI {
         return num
     }
 
+    public func doubleOption(_ name: String) -> Double? {
+        guard let val = option(name), let num = Double(val) else { return nil }
+        return num
+    }
+
     public func requireOption(_ name: String) -> String {
         guard let val = option(name) else {
             printError(code: "missing_option", message: "--\(name) is required")

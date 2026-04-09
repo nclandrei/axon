@@ -5,7 +5,7 @@ import CoreGraphics
 // MARK: - Launch
 
 /// Launch an app by name, bundle ID, or path. Waits up to 5s for it to start.
-public func launchApp(name: String?, bundleID: String?, path: String?) -> NSRunningApplication? {
+public func launchApp(name: String?, bundleID: String?, path: String?, timeout: TimeInterval = 5.0) -> NSRunningApplication? {
     let workspace = NSWorkspace.shared
 
     if let path = path {
@@ -16,26 +16,23 @@ public func launchApp(name: String?, bundleID: String?, path: String?) -> NSRunn
             launched = app
             sem.signal()
         }
-        _ = sem.wait(timeout: .now() + 5.0)
+        _ = sem.wait(timeout: .now() + timeout)
         if let app = launched { return app }
-        // If completion gave us nil, try polling by path
         let bundleForPath = Bundle(url: url)?.bundleIdentifier
         if let bid = bundleForPath {
-            return waitForApp(bundleID: bid, name: nil, timeout: 5.0)
+            return waitForApp(bundleID: bid, name: nil, timeout: timeout)
         }
     }
 
     if let bundleID = bundleID {
-        // Try to launch by bundle ID
         if workspace.launchApplication(withBundleIdentifier: bundleID, options: [], additionalEventParamDescriptor: nil, launchIdentifier: nil) {
-            return waitForApp(bundleID: bundleID, name: nil, timeout: 5.0)
+            return waitForApp(bundleID: bundleID, name: nil, timeout: timeout)
         }
     }
 
     if let name = name {
-        // Try to launch by name (uses Spotlight/LaunchServices)
         if workspace.launchApplication(name) {
-            return waitForApp(bundleID: nil, name: name, timeout: 5.0)
+            return waitForApp(bundleID: nil, name: name, timeout: timeout)
         }
     }
 
@@ -377,6 +374,128 @@ public func performWait(appElement: AXUIElement, selector: ElementSelector, appe
         if !appear && found == nil {
             let elapsed = Int(Date().timeIntervalSince(startTime) * 1000)
             return elapsed
+        }
+        usleep(pollInterval)
+    }
+
+    return nil // timeout
+}
+
+// MARK: - Move / Resize Window
+
+public struct MoveResizeResult {
+    public let positionSet: Bool
+    public let sizeSet: Bool
+    public let newPosition: AXPoint?
+    public let newSize: AXSize?
+}
+
+public func performMoveResize(window: AXUIElement, x: Double?, y: Double?, width: Double?, height: Double?) -> MoveResizeResult {
+    var positionSet = false
+    var sizeSet = false
+
+    // Set position if x or y provided
+    if let x = x, let y = y {
+        var point = CGPoint(x: x, y: y)
+        if let axValue = AXValueCreate(.cgPoint, &point) {
+            let result = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, axValue)
+            positionSet = (result == .success)
+        }
+    } else if let x = x {
+        if let currentPos = axPointAttribute(window) {
+            var point = CGPoint(x: x, y: currentPos.y)
+            if let axValue = AXValueCreate(.cgPoint, &point) {
+                let result = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, axValue)
+                positionSet = (result == .success)
+            }
+        }
+    } else if let y = y {
+        if let currentPos = axPointAttribute(window) {
+            var point = CGPoint(x: currentPos.x, y: y)
+            if let axValue = AXValueCreate(.cgPoint, &point) {
+                let result = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, axValue)
+                positionSet = (result == .success)
+            }
+        }
+    }
+
+    // Set size if width or height provided
+    if let width = width, let height = height {
+        var size = CGSize(width: width, height: height)
+        if let axValue = AXValueCreate(.cgSize, &size) {
+            let result = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, axValue)
+            sizeSet = (result == .success)
+        }
+    } else if let width = width {
+        if let currentSize = axSizeAttribute(window) {
+            var size = CGSize(width: width, height: currentSize.height)
+            if let axValue = AXValueCreate(.cgSize, &size) {
+                let result = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, axValue)
+                sizeSet = (result == .success)
+            }
+        }
+    } else if let height = height {
+        if let currentSize = axSizeAttribute(window) {
+            var size = CGSize(width: currentSize.width, height: height)
+            if let axValue = AXValueCreate(.cgSize, &size) {
+                let result = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, axValue)
+                sizeSet = (result == .success)
+            }
+        }
+    }
+
+    let newPosition = axPointAttribute(window)
+    let newSize = axSizeAttribute(window)
+
+    return MoveResizeResult(positionSet: positionSet, sizeSet: sizeSet, newPosition: newPosition, newSize: newSize)
+}
+
+// MARK: - Clipboard
+
+public func getClipboard() -> String? {
+    let pasteboard = NSPasteboard.general
+    return pasteboard.string(forType: .string)
+}
+
+public func setClipboard(text: String) -> Bool {
+    let pasteboard = NSPasteboard.general
+    pasteboard.clearContents()
+    return pasteboard.setString(text, forType: .string)
+}
+
+// MARK: - Wait for Value
+
+public struct WaitForValueResult {
+    public let elapsed_ms: Int
+    public let oldValue: String?
+    public let newValue: String?
+}
+
+public func performWaitForValue(appElement: AXUIElement, selector: ElementSelector, pattern: String?, timeout: TimeInterval) -> WaitForValueResult? {
+    let startTime = Date()
+    let pollInterval: useconds_t = 200_000 // 200ms
+
+    guard let initialFound = findElement(root: appElement, selector: selector) else {
+        return nil
+    }
+
+    let initialValue = axStringAttribute(initialFound.element, kAXValueAttribute as String)
+
+    while Date().timeIntervalSince(startTime) < timeout {
+        if let found = findElement(root: appElement, selector: selector) {
+            let currentValue = axStringAttribute(found.element, kAXValueAttribute as String)
+
+            if let pattern = pattern {
+                if let cv = currentValue, cv.range(of: pattern, options: .regularExpression) != nil {
+                    let elapsed = Int(Date().timeIntervalSince(startTime) * 1000)
+                    return WaitForValueResult(elapsed_ms: elapsed, oldValue: initialValue, newValue: currentValue)
+                }
+            } else {
+                if currentValue != initialValue {
+                    let elapsed = Int(Date().timeIntervalSince(startTime) * 1000)
+                    return WaitForValueResult(elapsed_ms: elapsed, oldValue: initialValue, newValue: currentValue)
+                }
+            }
         }
         usleep(pollInterval)
     }

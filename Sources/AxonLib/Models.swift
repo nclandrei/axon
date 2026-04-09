@@ -1,5 +1,18 @@
 import Foundation
 
+public let axonVersion = "0.1.0"
+
+public enum OutputFormat: String {
+    case json
+    case text
+}
+
+public func printPlain(_ pairs: [(String, String)]) {
+    for (key, value) in pairs {
+        print("\(key): \(value)")
+    }
+}
+
 // MARK: - Output Models
 
 /// Represents a node in the accessibility tree
@@ -370,6 +383,48 @@ public struct MenuListOutput: Codable {
     public init(success: Bool, items: [String]) {
         self.success = success
         self.items = items
+    }
+}
+
+// MARK: - MoveResizeOutput
+
+public struct MoveResizeOutput: Codable {
+    public let success: Bool
+    public let position: AXPoint?
+    public let size: AXSize?
+
+    public init(success: Bool, position: AXPoint?, size: AXSize?) {
+        self.success = success
+        self.position = position
+        self.size = size
+    }
+}
+
+// MARK: - ClipboardOutput
+
+public struct ClipboardOutput: Codable {
+    public let success: Bool
+    public let text: String?
+
+    public init(success: Bool, text: String?) {
+        self.success = success
+        self.text = text
+    }
+}
+
+// MARK: - WaitForValueOutput
+
+public struct WaitForValueOutput: Codable {
+    public let success: Bool
+    public let elapsed_ms: Int
+    public let oldValue: String?
+    public let newValue: String?
+
+    public init(success: Bool, elapsed_ms: Int, oldValue: String?, newValue: String?) {
+        self.success = success
+        self.elapsed_ms = elapsed_ms
+        self.oldValue = oldValue
+        self.newValue = newValue
     }
 }
 

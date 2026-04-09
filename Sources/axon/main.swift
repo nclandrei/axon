@@ -9,9 +9,11 @@ import AxonLib
 
 let helpMain = """
 axon - macOS Accessibility CLI for AI agent workflows
+  axon --version
 
 Wraps Apple's AXUIElement API so AI agents can drive macOS apps over SSH.
 All commands output JSON to stdout. Errors go to stderr with non-zero exit.
+Use --format text for human-readable output instead of JSON.
 
 App discovery:
   axon list                                          List running GUI apps
@@ -46,10 +48,16 @@ Window management:
   axon close --app <app>                             Close frontmost window
   axon close --app <app> --window <title>            Close specific window
   axon close --app <app> --quit                      Quit the app entirely
+  axon move-resize --app <app> [--window <title>] [--x N] [--y N] [--width N] [--height N]
+
+Clipboard:
+  axon clipboard --get                               Read clipboard text
+  axon clipboard --set --text <string>               Write text to clipboard
 
 Waiting:
   axon wait --app <app> <target> --appear            Wait for element to exist
   axon wait --app <app> <target> --disappear         Wait for element to vanish
+  axon wait-for-value --app <app> <target> [--pattern <regex>]  Wait for value to change/match
   Add --timeout <seconds> to either (default: 10). Polls every 200ms.
 
 Element targeting (<target> in click, type, scroll, wait):
@@ -130,9 +138,9 @@ axon launch - Launch an app by name, bundle ID, or path
   --name <name>       App name (LaunchServices/Spotlight lookup)
   --bundle-id <id>    Bundle identifier (e.g. com.apple.TextEdit)
   --path <path>       Full path to .app bundle
+  --timeout <seconds> Seconds to wait for app to start (default: 5)
 
 Provide exactly one of --name, --bundle-id, or --path.
-Waits up to 5 seconds for the app to start.
 
   axon launch --name TextEdit
   axon launch --bundle-id com.apple.Safari
@@ -400,6 +408,74 @@ Output (--list):
   {"success": true, "items": ["Apple", "Finder", "File", "Edit", ...]}
 """
 
+let helpMoveResize = """
+axon move-resize - Reposition or resize an app window
+
+  --app <name>        App name or bundle ID (required)
+  --window <title>    Target specific window by title (optional, defaults to frontmost)
+  --x <N>             X position (pixels from left screen edge)
+  --y <N>             Y position (pixels from top screen edge)
+  --width <N>         Window width in pixels
+  --height <N>        Window height in pixels
+
+Provide any combination of --x, --y, --width, --height. Omitted dimensions keep
+their current values. At least one dimension must be specified.
+
+  axon move-resize --app Finder --x 100 --y 200
+  axon move-resize --app Finder --width 800 --height 600
+  axon move-resize --app TextEdit --x 0 --y 0 --width 1920 --height 1080
+  axon move-resize --app Safari --window "GitHub" --x 50 --y 50
+
+Output:
+  {"success": true, "position": {"x": 100, "y": 200}, "size": {"width": 800, "height": 600}}
+"""
+
+let helpClipboard = """
+axon clipboard - Read or write the system clipboard (pasteboard)
+
+  --get               Read current clipboard text
+  --set               Write text to clipboard (requires --text)
+  --text <string>     Text to write (used with --set)
+
+Provide exactly one of --get or --set.
+
+  axon clipboard --get
+  axon clipboard --set --text "Hello, world!"
+  axon clipboard --get | jq -r '.text'
+
+Output (get):
+  {"success": true, "text": "clipboard contents here"}
+
+Output (set):
+  {"success": true, "text": null}
+"""
+
+let helpWaitForValue = """
+axon wait-for-value - Wait until an element's value changes or matches a pattern
+
+  --app <name>        App name or bundle ID (required)
+  --identifier <id>   Match by accessibility identifier
+  --label <text>      Match by title or description
+  --path <path>       Match by tree path (from 'axon tree')
+  --pattern <regex>   Wait until value matches this regex (optional)
+  --timeout <N>       Timeout in seconds (default: 10)
+
+Without --pattern: waits for the value to change from its initial state.
+With --pattern: waits for the value to match the given regex.
+
+Polls every 200ms. Element must exist at start (use 'wait --appear' first if needed).
+
+  axon wait-for-value --app MyApp --identifier progress --timeout 30
+  axon wait-for-value --app MyApp --identifier status --pattern "complete|done"
+  axon wait-for-value --app MyApp --path "AXWindow[0]/AXTextField[0]" --pattern "^[0-9]+$"
+
+Output:
+  {"success": true, "elapsed_ms": 1200, "oldValue": "loading", "newValue": "complete"}
+
+On timeout:
+  {"error": "timeout", "message": "Value did not change within 10s"}
+"""
+
 // MARK: - Help Dispatch
 
 func showHelp(for command: String?) {
@@ -421,6 +497,9 @@ func showHelp(for command: String?) {
     case "focused":     text = helpFocused
     case "window-info": text = helpWindowInfo
     case "menu":        text = helpMenu
+    case "move-resize": text = helpMoveResize
+    case "clipboard":  text = helpClipboard
+    case "wait-for-value": text = helpWaitForValue
     default:            text = helpMain
     }
     FileHandle.standardError.write(text.data(using: .utf8)!)
@@ -430,6 +509,15 @@ func showHelp(for command: String?) {
 // MARK: - Main
 
 let cli = CLI()
+let format = OutputFormat(rawValue: cli.option("format") ?? "json") ?? .json
+
+func emit<T: Encodable>(_ value: T, plain: [(String, String)]) {
+    if format == .text {
+        printPlain(plain)
+    } else {
+        printJSON(value)
+    }
+}
 
 guard let command = cli.command else {
     showHelp(for: nil)
@@ -444,6 +532,11 @@ if command == "--help" || command == "-h" || command == "help" {
     exit(0)
 }
 
+if command == "--version" || command == "-V" {
+    print(axonVersion)
+    exit(0)
+}
+
 // Per-subcommand --help: `axon tree --help`
 if cli.hasHelp() {
     showHelp(for: command)
@@ -453,25 +546,39 @@ if cli.hasHelp() {
 switch command {
 case "list":
     let apps = listApps()
-    printJSON(ListOutput(apps: apps))
+    let listOut = ListOutput(apps: apps)
+    if format == .text {
+        for app in apps {
+            print("\(app.name)  \(app.bundleID ?? "-")  pid:\(app.pid)")
+        }
+    } else {
+        printJSON(listOut)
+    }
 
 case "launch":
     let name = cli.option("name")
     let bundleID = cli.option("bundle-id")
     let path = cli.option("path")
 
+    let timeout = TimeInterval(cli.intOption("timeout", default: 5))
+
     if name == nil && bundleID == nil && path == nil {
         printError(code: "missing_option", message: "Provide --name, --bundle-id, or --path")
         exit(1)
     }
 
-    if let app = launchApp(name: name, bundleID: bundleID, path: path) {
-        printJSON(LaunchOutput(
+    if let app = launchApp(name: name, bundleID: bundleID, path: path, timeout: timeout) {
+        let launchOut = LaunchOutput(
             success: true,
             name: app.localizedName ?? name ?? "unknown",
             bundleID: app.bundleIdentifier,
             pid: app.processIdentifier
-        ))
+        )
+        emit(launchOut, plain: [
+            ("name", launchOut.name),
+            ("bundleID", launchOut.bundleID ?? "-"),
+            ("pid", String(launchOut.pid)),
+        ])
     } else {
         let target = name ?? bundleID ?? path ?? "unknown"
         printError(code: "launch_failed", message: "Failed to launch '\(target)'. Check that the app exists and the name/bundle ID is correct.")
@@ -510,10 +617,13 @@ case "click":
     )
 
     if performClick(element: found.element) {
-        printJSON(ClickOutput(
+        let clickOut = ClickOutput(
             success: true,
             element: ElementInfo(role: found.role, title: found.title, identifier: found.identifier)
-        ))
+        )
+        emit(clickOut, plain: [
+            ("clicked", [found.role, found.title, found.identifier].compactMap { $0 }.joined(separator: " ")),
+        ])
     } else {
         printError(code: "click_failed", message: "AXPress action failed on element")
         exit(1)
