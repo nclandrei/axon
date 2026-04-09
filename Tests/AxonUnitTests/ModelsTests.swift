@@ -296,6 +296,33 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(decoded.element.identifier, "link1")
     }
 
+    // MARK: - RightClickOutput
+
+    func testRightClickOutputEncoding() {
+        let output = RightClickOutput(
+            success: true,
+            element: ElementInfo(role: "AXRow", title: "Documents", identifier: nil)
+        )
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"role\" : \"AXRow\""))
+        XCTAssertTrue(json.contains("\"title\" : \"Documents\""))
+    }
+
+    func testRightClickOutputRoundTrip() {
+        let output = RightClickOutput(
+            success: true,
+            element: ElementInfo(role: "AXCell", title: nil, identifier: "cell1")
+        )
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(RightClickOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.element.role, "AXCell")
+        XCTAssertNil(decoded.element.title)
+        XCTAssertEqual(decoded.element.identifier, "cell1")
+    }
+
     // MARK: - TypeOutput
 
     func testTypeOutputEncoding() {

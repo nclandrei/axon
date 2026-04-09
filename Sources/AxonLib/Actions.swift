@@ -112,6 +112,36 @@ public func performClick(element: AXUIElement) -> Bool {
     return result == .success
 }
 
+// MARK: - Right-Click
+
+public func performRightClick(element: AXUIElement) -> Bool {
+    // Try AXShowMenu first (works for most elements with context menus)
+    let showMenuResult = AXUIElementPerformAction(element, kAXShowMenuAction as CFString)
+    if showMenuResult == .success {
+        return true
+    }
+
+    // Fall back to CGEvent right-click at element center
+    guard let pos = axPointAttribute(element), let sz = axSizeAttribute(element) else {
+        return false
+    }
+
+    let x = pos.x + sz.width / 2
+    let y = pos.y + sz.height / 2
+    let point = CGPoint(x: x, y: y)
+
+    guard let mouseDown = CGEvent(mouseEventSource: nil, mouseType: .rightMouseDown, mouseCursorPosition: point, mouseButton: .right),
+          let mouseUp = CGEvent(mouseEventSource: nil, mouseType: .rightMouseUp, mouseCursorPosition: point, mouseButton: .right) else {
+        return false
+    }
+
+    mouseDown.post(tap: .cghidEventTap)
+    usleep(50_000) // 50ms
+    mouseUp.post(tap: .cghidEventTap)
+
+    return true
+}
+
 // MARK: - Type / Set Value
 
 public enum TypeMethod: String {

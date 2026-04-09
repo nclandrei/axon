@@ -27,9 +27,14 @@ Inspection:
 
 Interaction:
   axon click --app <app> <target>                    Click a UI element
+  axon right-click --app <app> <target>              Right-click (context menu)
+  axon double-click --app <app> <target>             Double-click an element
   axon type --app <app> <target> --text <str>        Type text into a field
   axon type --app <app> <target> --text <s> --clear  Replace existing field text
   axon scroll --app <app> <target> --direction <dir> Scroll within element
+  axon key --app <app> --key <key> [--modifiers m]   Press a key with modifiers
+  axon hover --app <app> <target>                    Move mouse to element
+  axon drag --app <app> --from <t> --to <t>          Drag between elements
 
 Window management:
   axon activate --app <app>                          Bring app to front
@@ -172,6 +177,25 @@ On failure, "available" lists nearby identifiers to help retry:
   {"error": "element_not_found", "message": "...", "available": ["cancelBtn", "submitBtn"]}
 """
 
+let helpRightClick = """
+axon right-click - Right-click a UI element (context menu)
+
+  --app <name>        App name or bundle ID (required)
+  --identifier <id>   Match by accessibility identifier
+  --label <text>      Match by title or description
+  --path <path>       Match by tree path (from 'axon tree')
+
+Activates app before clicking. Tries AXShowMenu action first, falls back to
+CGEvent right-click at the element center.
+
+  axon right-click --app Finder --label "Documents"
+  axon right-click --app MyApp --identifier fileItem
+  axon right-click --app MyApp --path "AXWindow[0]/AXOutline[0]/AXRow[2]"
+
+Output:
+  {"success": true, "element": {"role": "AXRow", "title": "Documents", "identifier": null}}
+"""
+
 let helpType = """
 axon type - Type text into a field
 
@@ -291,7 +315,8 @@ func showHelp(for command: String?) {
     case "list":       text = helpList
     case "launch":     text = helpLaunch
     case "tree":       text = helpTree
-    case "click":      text = helpClick
+    case "click":       text = helpClick
+    case "right-click": text = helpRightClick
     case "type":       text = helpType
     case "scroll":     text = helpScroll
     case "screenshot": text = helpScreenshot
@@ -393,6 +418,31 @@ case "click":
         ))
     } else {
         printError(code: "click_failed", message: "AXPress action failed on element")
+        exit(1)
+    }
+
+case "right-click":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let (app, axApp) = resolveApp(name: appName)
+
+    activateApp(app)
+
+    let found = resolveElement(
+        appElement: axApp,
+        identifier: cli.option("identifier"),
+        label: cli.option("label"),
+        path: cli.option("path"),
+        appName: appName
+    )
+
+    if performRightClick(element: found.element) {
+        printJSON(RightClickOutput(
+            success: true,
+            element: ElementInfo(role: found.role, title: found.title, identifier: found.identifier)
+        ))
+    } else {
+        printError(code: "right_click_failed", message: "Right-click failed on element")
         exit(1)
     }
 
