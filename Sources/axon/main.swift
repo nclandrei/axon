@@ -645,10 +645,13 @@ case "double-click":
     )
 
     if performDoubleClick(element: found.element) {
-        printJSON(DoubleClickOutput(
+        let dcOut = DoubleClickOutput(
             success: true,
             element: ElementInfo(role: found.role, title: found.title, identifier: found.identifier)
-        ))
+        )
+        emit(dcOut, plain: [
+            ("double-clicked", [found.role, found.title, found.identifier].compactMap { $0 }.joined(separator: " ")),
+        ])
     } else {
         printError(code: "double_click_failed", message: "Double-click failed on element")
         exit(1)
@@ -670,10 +673,13 @@ case "right-click":
     )
 
     if performRightClick(element: found.element) {
-        printJSON(RightClickOutput(
+        let rcOut = RightClickOutput(
             success: true,
             element: ElementInfo(role: found.role, title: found.title, identifier: found.identifier)
-        ))
+        )
+        emit(rcOut, plain: [
+            ("right-clicked", [found.role, found.title, found.identifier].compactMap { $0 }.joined(separator: " ")),
+        ])
     } else {
         printError(code: "right_click_failed", message: "Right-click failed on element")
         exit(1)
@@ -697,7 +703,8 @@ case "type":
     )
 
     if let method = performType(element: found.element, text: text, clear: clear) {
-        printJSON(TypeOutput(success: true, method: method.rawValue))
+        let typeOut = TypeOutput(success: true, method: method.rawValue)
+        emit(typeOut, plain: [("typed", "ok"), ("method", method.rawValue)])
     } else {
         printError(code: "type_failed", message: "Failed to set text on element via both direct and keyboard methods")
         exit(1)
@@ -726,7 +733,7 @@ case "scroll":
     )
 
     performScroll(element: found.element, direction: direction, amount: amount)
-    printJSON(ScrollOutput(success: true))
+    emit(ScrollOutput(success: true), plain: [("scrolled", "\(direction.rawValue) \(amount)")])
 
 case "screenshot":
     let appName = cli.requireOption("app")
@@ -739,8 +746,11 @@ case "screenshot":
     activateApp(app)
     usleep(200_000) // 200ms for window to be fully visible
 
-    if let output = captureScreenshot(app: app, outputPath: outputPath, fullScreen: fullScreen, windowTitle: windowTitle) {
-        printJSON(output)
+    if let ssOutput = captureScreenshot(app: app, outputPath: outputPath, fullScreen: fullScreen, windowTitle: windowTitle) {
+        emit(ssOutput, plain: [
+            ("path", ssOutput.path),
+            ("size", "\(ssOutput.width)x\(ssOutput.height)"),
+        ])
     } else {
         exit(1)
     }
@@ -750,7 +760,7 @@ case "activate":
     let (app, _) = resolveApp(name: appName)
 
     let success = activateApp(app)
-    printJSON(ActivateOutput(success: success))
+    emit(ActivateOutput(success: success), plain: [("activated", success ? "yes" : "no")])
 
 case "close":
     let appName = cli.requireOption("app")
@@ -759,7 +769,7 @@ case "close":
     if quit {
         let (app, _) = resolveApp(name: appName)
         if quitApp(app) {
-            printJSON(CloseOutput(success: true, action: "quit"))
+            emit(CloseOutput(success: true, action: "quit"), plain: [("closed", "quit")])
         } else {
             printError(code: "quit_failed", message: "Failed to quit '\(appName)'. The app may have unsaved changes or blocked termination.")
             exit(1)
@@ -769,7 +779,7 @@ case "close":
         let (_, axApp) = resolveApp(name: appName)
         let windowTitle = cli.option("window")
         if closeWindow(axApp: axApp, windowTitle: windowTitle) {
-            printJSON(CloseOutput(success: true, action: "close_window"))
+            emit(CloseOutput(success: true, action: "close_window"), plain: [("closed", "close_window")])
         } else {
             let detail = windowTitle != nil ? "window '\(windowTitle!)'" : "frontmost window"
             printError(code: "close_failed", message: "Failed to close \(detail) of '\(appName)'")
@@ -804,7 +814,7 @@ case "wait":
     let waitForAppear = appear
 
     if let elapsed = performWait(appElement: axApp, selector: selector, appear: waitForAppear, timeout: timeout) {
-        printJSON(WaitOutput(success: true, elapsed_ms: elapsed))
+        emit(WaitOutput(success: true, elapsed_ms: elapsed), plain: [("waited", "\(elapsed)ms")])
     } else {
         let action = waitForAppear ? "appear" : "disappear"
         printError(code: "timeout", message: "Element did not \(action) within \(Int(timeout))s")
@@ -882,6 +892,93 @@ case "menu":
             )
             exit(1)
         }
+    }
+
+case "move-resize":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let (app, axApp) = resolveApp(name: appName)
+    let windowTitle = cli.option("window")
+
+    let x = cli.doubleOption("x")
+    let y = cli.doubleOption("y")
+    let width = cli.doubleOption("width")
+    let height = cli.doubleOption("height")
+
+    if x == nil && y == nil && width == nil && height == nil {
+        printError(code: "missing_option", message: "Provide at least one of --x, --y, --width, --height")
+        exit(1)
+    }
+
+    activateApp(app)
+
+    let windows: [AXUIElement] = axAttribute(axApp, kAXWindowsAttribute as String) ?? []
+    let targetWindow: AXUIElement?
+    if let title = windowTitle {
+        targetWindow = windows.first { win in
+            let t: String? = axStringAttribute(win, kAXTitleAttribute as String)
+            return t?.localizedCaseInsensitiveContains(title) == true
+        }
+    } else {
+        targetWindow = windows.first
+    }
+
+    guard let window = targetWindow else {
+        let detail = windowTitle != nil ? "window '\(windowTitle!)'" : "frontmost window"
+        printError(code: "window_not_found", message: "No \(detail) found for '\(appName)'")
+        exit(1)
+    }
+
+    let result = performMoveResize(window: window, x: x, y: y, width: width, height: height)
+    let success = result.positionSet || result.sizeSet
+    printJSON(MoveResizeOutput(success: success, position: result.newPosition, size: result.newSize))
+    if !success { exit(1) }
+
+case "clipboard":
+    let isGet = cli.flag("get")
+    let isSet = cli.flag("set")
+
+    if !isGet && !isSet {
+        printError(code: "missing_option", message: "Provide --get or --set")
+        exit(1)
+    }
+
+    if isGet {
+        let text = getClipboard()
+        printJSON(ClipboardOutput(success: true, text: text))
+    } else {
+        let text = cli.requireOption("text")
+        let success = setClipboard(text: text)
+        printJSON(ClipboardOutput(success: success, text: nil))
+        if !success { exit(1) }
+    }
+
+case "wait-for-value":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let timeout = TimeInterval(cli.intOption("timeout", default: 10))
+    let pattern = cli.option("pattern")
+
+    let (_, axApp) = resolveApp(name: appName)
+
+    let selector: ElementSelector
+    if let id = cli.option("identifier") {
+        selector = .identifier(id)
+    } else if let lbl = cli.option("label") {
+        selector = .label(lbl)
+    } else if let p = cli.option("path") {
+        selector = .path(p)
+    } else {
+        printError(code: "missing_selector", message: "Provide --identifier, --label, or --path")
+        exit(1)
+    }
+
+    if let result = performWaitForValue(appElement: axApp, selector: selector, pattern: pattern, timeout: timeout) {
+        printJSON(WaitForValueOutput(success: true, elapsed_ms: result.elapsed_ms, oldValue: result.oldValue, newValue: result.newValue))
+    } else {
+        let desc = pattern != nil ? "Value did not match pattern '\(pattern!)' within \(Int(timeout))s" : "Value did not change within \(Int(timeout))s"
+        printError(code: "timeout", message: desc)
+        exit(1)
     }
 
 default:

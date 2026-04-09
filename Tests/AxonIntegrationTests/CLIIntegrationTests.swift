@@ -229,6 +229,34 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertEqual(json?["error"] as? String, "missing_option")
     }
 
+    // MARK: - key --help
+
+    func testKeyHelp_exits0() {
+        let result = runAxon(["key", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon key"))
+    }
+
+    // MARK: - key missing --app
+
+    func testKeyMissingApp_exits1() {
+        let result = runAxon(["key"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    // MARK: - key missing --key
+
+    func testKeyMissingKey_exits1() {
+        let result = runAxon(["key", "--app", "Finder"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
     // MARK: - 13. type missing --app
 
     func testTypeMissingApp_exits1() {

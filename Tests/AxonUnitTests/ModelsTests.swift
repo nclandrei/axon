@@ -375,6 +375,34 @@ final class ModelsTests: XCTestCase {
         XCTAssertTrue(decoded.success)
     }
 
+    // MARK: - KeyOutput
+
+    func testKeyOutputEncoding() {
+        let output = KeyOutput(success: true, key: "c", modifiers: ["cmd"])
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"key\" : \"c\""))
+        XCTAssertTrue(json.contains("\"cmd\""))
+    }
+
+    func testKeyOutputRoundTrip() {
+        let output = KeyOutput(success: true, key: "return", modifiers: nil)
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(KeyOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.key, "return")
+        XCTAssertNil(decoded.modifiers)
+    }
+
+    func testKeyOutputWithMultipleModifiers() {
+        let output = KeyOutput(success: true, key: "z", modifiers: ["cmd", "shift"])
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(KeyOutput.self, from: data)
+        XCTAssertEqual(decoded.key, "z")
+        XCTAssertEqual(decoded.modifiers, ["cmd", "shift"])
+    }
+
     // MARK: - ScreenshotOutput
 
     func testScreenshotOutputEncoding() {
@@ -756,5 +784,140 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(decoded.name, "MyApp")
         XCTAssertNil(decoded.bundleID)
         XCTAssertEqual(decoded.pid, 99)
+    }
+
+    // MARK: - MoveResizeOutput
+
+    func testMoveResizeOutputEncoding() {
+        let output = MoveResizeOutput(success: true, position: AXPoint(x: 100, y: 200), size: AXSize(width: 800, height: 600))
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"x\" : 100"))
+        XCTAssertTrue(json.contains("\"y\" : 200"))
+        XCTAssertTrue(json.contains("\"width\" : 800"))
+        XCTAssertTrue(json.contains("\"height\" : 600"))
+    }
+
+    func testMoveResizeOutputRoundTrip() {
+        let output = MoveResizeOutput(success: true, position: AXPoint(x: 50, y: 75), size: AXSize(width: 1024, height: 768))
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(MoveResizeOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.position?.x, 50)
+        XCTAssertEqual(decoded.size?.width, 1024)
+    }
+
+    func testMoveResizeOutputWithNils() {
+        let output = MoveResizeOutput(success: false, position: nil, size: nil)
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(MoveResizeOutput.self, from: data)
+        XCTAssertFalse(decoded.success)
+        XCTAssertNil(decoded.position)
+        XCTAssertNil(decoded.size)
+    }
+
+    func testMoveResizeOutputPositionOnly() {
+        let output = MoveResizeOutput(success: true, position: AXPoint(x: 300, y: 400), size: nil)
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(MoveResizeOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.position?.x, 300)
+        XCTAssertNil(decoded.size)
+    }
+
+    func testMoveResizeOutputSizeOnly() {
+        let output = MoveResizeOutput(success: true, position: nil, size: AXSize(width: 640, height: 480))
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(MoveResizeOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertNil(decoded.position)
+        XCTAssertEqual(decoded.size?.width, 640)
+    }
+
+    // MARK: - ClipboardOutput
+
+    func testClipboardOutputEncodingGet() {
+        let output = ClipboardOutput(success: true, text: "Hello clipboard")
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"Hello clipboard\""))
+    }
+
+    func testClipboardOutputEncodingSet() {
+        let output = ClipboardOutput(success: true, text: nil)
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"text\" : null"))
+    }
+
+    func testClipboardOutputRoundTrip() {
+        let output = ClipboardOutput(success: true, text: "test data")
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(ClipboardOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.text, "test data")
+    }
+
+    func testClipboardOutputRoundTripNilText() {
+        let output = ClipboardOutput(success: false, text: nil)
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(ClipboardOutput.self, from: data)
+        XCTAssertFalse(decoded.success)
+        XCTAssertNil(decoded.text)
+    }
+
+    func testClipboardOutputWithSpecialCharacters() {
+        let output = ClipboardOutput(success: true, text: "line1\nline2\ttab \"quotes\" and 日本語")
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(ClipboardOutput.self, from: data)
+        XCTAssertEqual(decoded.text, "line1\nline2\ttab \"quotes\" and 日本語")
+    }
+
+    func testClipboardOutputWithEmptyString() {
+        let output = ClipboardOutput(success: true, text: "")
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(ClipboardOutput.self, from: data)
+        XCTAssertEqual(decoded.text, "")
+    }
+
+    // MARK: - WaitForValueOutput
+
+    func testWaitForValueOutputEncoding() {
+        let output = WaitForValueOutput(success: true, elapsed_ms: 1500, oldValue: "loading", newValue: "done")
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("1500"))
+        XCTAssertTrue(json.contains("\"loading\""))
+        XCTAssertTrue(json.contains("\"done\""))
+    }
+
+    func testWaitForValueOutputRoundTrip() {
+        let output = WaitForValueOutput(success: true, elapsed_ms: 200, oldValue: "0", newValue: "100")
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(WaitForValueOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.elapsed_ms, 200)
+        XCTAssertEqual(decoded.oldValue, "0")
+        XCTAssertEqual(decoded.newValue, "100")
+    }
+
+    func testWaitForValueOutputWithNilValues() {
+        let output = WaitForValueOutput(success: true, elapsed_ms: 500, oldValue: nil, newValue: "new")
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(WaitForValueOutput.self, from: data)
+        XCTAssertNil(decoded.oldValue)
+        XCTAssertEqual(decoded.newValue, "new")
+    }
+
+    func testWaitForValueOutputBothNilValues() {
+        let output = WaitForValueOutput(success: false, elapsed_ms: 10000, oldValue: nil, newValue: nil)
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(WaitForValueOutput.self, from: data)
+        XCTAssertFalse(decoded.success)
+        XCTAssertEqual(decoded.elapsed_ms, 10000)
+        XCTAssertNil(decoded.oldValue)
+        XCTAssertNil(decoded.newValue)
     }
 }

@@ -224,6 +224,18 @@ public struct ScrollOutput: Codable {
     }
 }
 
+public struct KeyOutput: Codable {
+    public let success: Bool
+    public let key: String
+    public let modifiers: [String]?
+
+    public init(success: Bool, key: String, modifiers: [String]?) {
+        self.success = success
+        self.key = key
+        self.modifiers = modifiers
+    }
+}
+
 public struct ScreenshotOutput: Codable {
     public let success: Bool
     public let path: String
