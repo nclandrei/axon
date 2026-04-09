@@ -21,6 +21,9 @@ App discovery:
 
 Inspection:
   axon tree --app <app> [--depth N] [--compact]      Dump accessibility tree as JSON
+  axon get-value --app <app> <target>                Read element value/state
+  axon focused --app <app>                           Get focused element info
+  axon window-info --app <app> [--window <title>]    Get window geometry
   axon screenshot --app <app> [--output <path>]      Capture window as PNG
   axon screenshot --app <app> --full-screen          Capture entire screen
   axon screenshot --app <app> --window <title>       Capture specific window
@@ -30,6 +33,8 @@ Interaction:
   axon type --app <app> <target> --text <str>        Type text into a field
   axon type --app <app> <target> --text <s> --clear  Replace existing field text
   axon scroll --app <app> <target> --direction <dir> Scroll within element
+  axon menu --app <app> --path "File > Save"         Navigate and click menu item
+  axon menu --app <app> --list                       List top-level menu items
 
 Window management:
   axon activate --app <app>                          Bring app to front
@@ -283,6 +288,76 @@ On timeout:
   {"error": "timeout", "message": "Element did not appear within 10s"}
 """
 
+let helpGetValue = """
+axon get-value - Read the value/state of a UI element
+
+  --app <name>        App name or bundle ID (required)
+  --identifier <id>   Match by accessibility identifier
+  --label <text>      Match by title or description
+  --path <path>       Match by tree path (from 'axon tree')
+
+Returns the element's role, value, title, selected text, enabled/focused/selected
+state, and description. Useful for reading text fields, checkbox state, slider values.
+
+  axon get-value --app TextEdit --path "AXWindow[0]/AXScrollArea[0]/AXTextArea[0]"
+  axon get-value --app MyApp --identifier myCheckbox
+  axon get-value --app MyApp --label "Volume"
+
+Output:
+  {"success": true, "role": "AXTextArea", "value": "Hello world", "title": null, ...}
+"""
+
+let helpFocused = """
+axon focused - Get the currently focused element in an app
+
+  --app <name>        App name or bundle ID (required)
+
+Recursively searches the accessibility tree for the element with focus.
+Returns its role, title, identifier, current value, and tree path.
+
+  axon focused --app TextEdit
+  axon focused --app Safari
+
+Output:
+  {"success": true, "element": {"role": "AXTextArea", ...}, "value": "text", "path": "AXWindow[0]/..."}
+"""
+
+let helpWindowInfo = """
+axon window-info - Get window geometry and state
+
+  --app <name>        App name or bundle ID (required)
+  --window <title>    Filter by window title (optional)
+
+Returns position, size, and state (main, minimized, full screen) for each window.
+Without --window, returns info for all windows.
+
+  axon window-info --app Finder
+  axon window-info --app Xcode --window "MyProject"
+
+Output:
+  {"success": true, "windows": [{"title": "Finder", "position": {"x": 0, "y": 25}, ...}]}
+"""
+
+let helpMenu = """
+axon menu - Navigate and activate a menu bar item
+
+  --app <name>        App name or bundle ID (required)
+  --path <menu-path>  Menu path like "File > Save" or "Edit > Find > Find..."
+  --list              List top-level menu bar items instead of navigating
+
+Use " > " (space-arrow-space) to separate menu levels.
+
+  axon menu --app TextEdit --path "File > Save"
+  axon menu --app Safari --path "Edit > Find > Find..."
+  axon menu --app Finder --list
+
+Output (--path):
+  {"success": true, "menuItem": {"role": "AXMenuItem", "title": "Save", ...}}
+
+Output (--list):
+  {"success": true, "items": ["Apple", "Finder", "File", "Edit", ...]}
+"""
+
 // MARK: - Help Dispatch
 
 func showHelp(for command: String?) {
@@ -297,8 +372,12 @@ func showHelp(for command: String?) {
     case "screenshot": text = helpScreenshot
     case "activate":   text = helpActivate
     case "close":      text = helpClose
-    case "wait":       text = helpWait
-    default:           text = helpMain
+    case "wait":        text = helpWait
+    case "get-value":   text = helpGetValue
+    case "focused":     text = helpFocused
+    case "window-info": text = helpWindowInfo
+    case "menu":        text = helpMenu
+    default:            text = helpMain
     }
     FileHandle.standardError.write(text.data(using: .utf8)!)
     FileHandle.standardError.write("\n".data(using: .utf8)!)
@@ -526,6 +605,79 @@ case "wait":
         let action = waitForAppear ? "appear" : "disappear"
         printError(code: "timeout", message: "Element did not \(action) within \(Int(timeout))s")
         exit(1)
+    }
+
+case "get-value":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let (app, axApp) = resolveApp(name: appName)
+
+    activateApp(app)
+
+    let found = resolveElement(
+        appElement: axApp,
+        identifier: cli.option("identifier"),
+        label: cli.option("label"),
+        path: cli.option("path"),
+        appName: appName
+    )
+
+    let output = getElementValue(element: found.element)
+    printJSON(output)
+
+case "focused":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let (_, axApp) = resolveApp(name: appName)
+
+    if let result = findFocusedElement(root: axApp, path: "") {
+        printJSON(FocusedOutput(
+            success: true,
+            element: ElementInfo(role: result.role, title: result.title, identifier: result.identifier),
+            value: result.value,
+            path: result.path
+        ))
+    } else {
+        printJSON(FocusedOutput(success: true, element: nil, value: nil, path: nil))
+    }
+
+case "window-info":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let (_, axApp) = resolveApp(name: appName)
+    let windowTitle = cli.option("window")
+
+    let windows = getWindowInfo(axApp: axApp, windowTitle: windowTitle)
+    printJSON(WindowInfoOutput(success: true, windows: windows))
+
+case "menu":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let (app, axApp) = resolveApp(name: appName)
+    let list = cli.flag("list")
+
+    if list {
+        let items = listMenuBarItems(axApp: axApp)
+        printJSON(MenuListOutput(success: true, items: items))
+    } else {
+        let menuPath = cli.requireOption("path")
+
+        activateApp(app)
+
+        if let found = performMenuAction(axApp: axApp, menuPath: menuPath) {
+            printJSON(MenuOutput(
+                success: true,
+                menuItem: ElementInfo(role: found.role, title: found.title, identifier: found.identifier)
+            ))
+        } else {
+            let topItems = listMenuBarItems(axApp: axApp)
+            printError(
+                code: "menu_not_found",
+                message: "Could not find menu item at path '\(menuPath)'",
+                available: topItems
+            )
+            exit(1)
+        }
     }
 
 default:

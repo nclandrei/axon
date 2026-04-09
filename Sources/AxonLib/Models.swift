@@ -259,6 +259,100 @@ public struct ElementInfo: Codable {
     }
 }
 
+// MARK: - GetValue Output
+
+public struct GetValueOutput: Codable {
+    public let success: Bool
+    public let role: String?
+    public let value: String?
+    public let title: String?
+    public let selectedText: String?
+    public let enabled: Bool?
+    public let focused: Bool?
+    public let selected: Bool?
+    public let description: String?
+
+    public init(success: Bool, role: String?, value: String?, title: String?, selectedText: String?, enabled: Bool?, focused: Bool?, selected: Bool?, description: String?) {
+        self.success = success
+        self.role = role
+        self.value = value
+        self.title = title
+        self.selectedText = selectedText
+        self.enabled = enabled
+        self.focused = focused
+        self.selected = selected
+        self.description = description
+    }
+}
+
+// MARK: - Focused Output
+
+public struct FocusedOutput: Codable {
+    public let success: Bool
+    public let element: ElementInfo?
+    public let value: String?
+    public let path: String?
+
+    public init(success: Bool, element: ElementInfo?, value: String?, path: String?) {
+        self.success = success
+        self.element = element
+        self.value = value
+        self.path = path
+    }
+}
+
+// MARK: - WindowInfo Output
+
+public struct WindowInfo: Codable {
+    public let title: String?
+    public let position: AXPoint?
+    public let size: AXSize?
+    public let main: Bool?
+    public let minimized: Bool?
+    public let fullScreen: Bool?
+
+    public init(title: String?, position: AXPoint?, size: AXSize?, main: Bool?, minimized: Bool?, fullScreen: Bool?) {
+        self.title = title
+        self.position = position
+        self.size = size
+        self.main = main
+        self.minimized = minimized
+        self.fullScreen = fullScreen
+    }
+}
+
+public struct WindowInfoOutput: Codable {
+    public let success: Bool
+    public let windows: [WindowInfo]
+
+    public init(success: Bool, windows: [WindowInfo]) {
+        self.success = success
+        self.windows = windows
+    }
+}
+
+// MARK: - Menu Output
+
+public struct MenuOutput: Codable {
+    public let success: Bool
+    public let menuItem: ElementInfo?
+
+    public init(success: Bool, menuItem: ElementInfo?) {
+        self.success = success
+        self.menuItem = menuItem
+    }
+}
+
+public struct MenuListOutput: Codable {
+    public let success: Bool
+    public let items: [String]
+
+    public init(success: Bool, items: [String]) {
+        self.success = success
+        self.items = items
+    }
+}
+
 // MARK: - Error Output
 
 public struct ErrorOutput: Codable {

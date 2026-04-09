@@ -475,6 +475,228 @@ final class ModelsTests: XCTestCase {
         XCTAssertTrue(json.contains("\"com.apple.finder\""))
     }
 
+    // MARK: - GetValueOutput
+
+    func testGetValueOutputEncoding() {
+        let output = GetValueOutput(
+            success: true, role: "AXTextField", value: "hello", title: "Name",
+            selectedText: "hel", enabled: true, focused: true, selected: nil, description: "Name field"
+        )
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"role\" : \"AXTextField\""))
+        XCTAssertTrue(json.contains("\"value\" : \"hello\""))
+        XCTAssertTrue(json.contains("\"selectedText\" : \"hel\""))
+    }
+
+    func testGetValueOutputRoundTrip() {
+        let output = GetValueOutput(
+            success: true, role: "AXCheckBox", value: "1", title: "Accept",
+            selectedText: nil, enabled: true, focused: false, selected: true, description: nil
+        )
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(GetValueOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.role, "AXCheckBox")
+        XCTAssertEqual(decoded.value, "1")
+        XCTAssertEqual(decoded.title, "Accept")
+        XCTAssertNil(decoded.selectedText)
+        XCTAssertEqual(decoded.selected, true)
+        XCTAssertNil(decoded.description)
+    }
+
+    func testGetValueOutputWithNils() {
+        let output = GetValueOutput(
+            success: true, role: nil, value: nil, title: nil,
+            selectedText: nil, enabled: nil, focused: nil, selected: nil, description: nil
+        )
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(GetValueOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertNil(decoded.role)
+        XCTAssertNil(decoded.value)
+        XCTAssertNil(decoded.title)
+        XCTAssertNil(decoded.selectedText)
+        XCTAssertNil(decoded.enabled)
+        XCTAssertNil(decoded.focused)
+        XCTAssertNil(decoded.selected)
+        XCTAssertNil(decoded.description)
+    }
+
+    // MARK: - FocusedOutput
+
+    func testFocusedOutputEncoding() {
+        let output = FocusedOutput(
+            success: true,
+            element: ElementInfo(role: "AXTextArea", title: nil, identifier: "editor"),
+            value: "some text",
+            path: "AXWindow[0]/AXScrollArea[0]/AXTextArea[0]"
+        )
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"editor\""))
+        XCTAssertTrue(json.contains("\"some text\""))
+    }
+
+    func testFocusedOutputRoundTrip() {
+        let output = FocusedOutput(
+            success: true,
+            element: ElementInfo(role: "AXTextField", title: "Search", identifier: nil),
+            value: "query",
+            path: "AXWindow[0]/AXTextField[0]"
+        )
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(FocusedOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.element?.role, "AXTextField")
+        XCTAssertEqual(decoded.element?.title, "Search")
+        XCTAssertEqual(decoded.value, "query")
+        XCTAssertEqual(decoded.path, "AXWindow[0]/AXTextField[0]")
+    }
+
+    func testFocusedOutputNoFocusedElement() {
+        let output = FocusedOutput(success: true, element: nil, value: nil, path: nil)
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(FocusedOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertNil(decoded.element)
+        XCTAssertNil(decoded.value)
+        XCTAssertNil(decoded.path)
+    }
+
+    // MARK: - WindowInfo
+
+    func testWindowInfoEncodingAllFields() {
+        let info = WindowInfo(
+            title: "Main Window",
+            position: AXPoint(x: 100, y: 200),
+            size: AXSize(width: 800, height: 600),
+            main: true,
+            minimized: false,
+            fullScreen: false
+        )
+        let data = try! jsonEncoder.encode(info)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"Main Window\""))
+        XCTAssertTrue(json.contains("\"main\" : true"))
+        XCTAssertTrue(json.contains("\"minimized\" : false"))
+        XCTAssertTrue(json.contains("\"fullScreen\" : false"))
+    }
+
+    func testWindowInfoWithNils() {
+        let info = WindowInfo(
+            title: nil, position: nil, size: nil,
+            main: nil, minimized: nil, fullScreen: nil
+        )
+        let data = try! jsonEncoder.encode(info)
+        let decoded = try! JSONDecoder().decode(WindowInfo.self, from: data)
+        XCTAssertNil(decoded.title)
+        XCTAssertNil(decoded.position)
+        XCTAssertNil(decoded.size)
+        XCTAssertNil(decoded.main)
+        XCTAssertNil(decoded.minimized)
+        XCTAssertNil(decoded.fullScreen)
+    }
+
+    // MARK: - WindowInfoOutput
+
+    func testWindowInfoOutputEncoding() {
+        let output = WindowInfoOutput(success: true, windows: [
+            WindowInfo(title: "Win1", position: AXPoint(x: 0, y: 0), size: AXSize(width: 800, height: 600), main: true, minimized: false, fullScreen: false),
+            WindowInfo(title: "Win2", position: AXPoint(x: 100, y: 100), size: AXSize(width: 400, height: 300), main: false, minimized: true, fullScreen: false),
+        ])
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"Win1\""))
+        XCTAssertTrue(json.contains("\"Win2\""))
+    }
+
+    func testWindowInfoOutputRoundTrip() {
+        let output = WindowInfoOutput(success: true, windows: [
+            WindowInfo(title: "Test", position: AXPoint(x: 50, y: 50), size: AXSize(width: 640, height: 480), main: true, minimized: false, fullScreen: false),
+        ])
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(WindowInfoOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.windows.count, 1)
+        XCTAssertEqual(decoded.windows[0].title, "Test")
+        XCTAssertEqual(decoded.windows[0].position?.x, 50)
+        XCTAssertEqual(decoded.windows[0].size?.width, 640)
+        XCTAssertEqual(decoded.windows[0].main, true)
+    }
+
+    func testWindowInfoOutputEmptyWindows() {
+        let output = WindowInfoOutput(success: true, windows: [])
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(WindowInfoOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertTrue(decoded.windows.isEmpty)
+    }
+
+    // MARK: - MenuOutput
+
+    func testMenuOutputEncoding() {
+        let output = MenuOutput(
+            success: true,
+            menuItem: ElementInfo(role: "AXMenuItem", title: "Save", identifier: nil)
+        )
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"Save\""))
+    }
+
+    func testMenuOutputRoundTrip() {
+        let output = MenuOutput(
+            success: true,
+            menuItem: ElementInfo(role: "AXMenuItem", title: "Quit", identifier: "quitItem")
+        )
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(MenuOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.menuItem?.role, "AXMenuItem")
+        XCTAssertEqual(decoded.menuItem?.title, "Quit")
+        XCTAssertEqual(decoded.menuItem?.identifier, "quitItem")
+    }
+
+    func testMenuOutputWithNilItem() {
+        let output = MenuOutput(success: false, menuItem: nil)
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(MenuOutput.self, from: data)
+        XCTAssertFalse(decoded.success)
+        XCTAssertNil(decoded.menuItem)
+    }
+
+    // MARK: - MenuListOutput
+
+    func testMenuListOutputEncoding() {
+        let output = MenuListOutput(success: true, items: ["Apple", "File", "Edit", "View"])
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"File\""))
+        XCTAssertTrue(json.contains("\"Edit\""))
+    }
+
+    func testMenuListOutputRoundTrip() {
+        let output = MenuListOutput(success: true, items: ["File", "Edit"])
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(MenuListOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.items, ["File", "Edit"])
+    }
+
+    func testMenuListOutputEmpty() {
+        let output = MenuListOutput(success: true, items: [])
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(MenuListOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertTrue(decoded.items.isEmpty)
+    }
+
+    // MARK: - AppInfo (continued)
+
     func testAppInfoEncodingWithNilBundleID() {
         let info = AppInfo(name: "MyApp", bundleID: nil, pid: 99)
         let data = try! jsonEncoder.encode(info)
