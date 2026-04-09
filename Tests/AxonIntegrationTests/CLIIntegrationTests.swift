@@ -183,6 +183,24 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertEqual(json?["error"] as? String, "missing_option")
     }
 
+    // MARK: - double-click --help
+
+    func testDoubleClickHelp_exits0() {
+        let result = runAxon(["double-click", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon double-click"))
+    }
+
+    // MARK: - double-click missing --app
+
+    func testDoubleClickMissingApp_exits1() {
+        let result = runAxon(["double-click"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
     // MARK: - right-click --help
 
     func testRightClickHelp_exits0() {

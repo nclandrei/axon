@@ -177,6 +177,24 @@ On failure, "available" lists nearby identifiers to help retry:
   {"error": "element_not_found", "message": "...", "available": ["cancelBtn", "submitBtn"]}
 """
 
+let helpDoubleClick = """
+axon double-click - Double-click a UI element
+
+  --app <name>        App name or bundle ID (required)
+  --identifier <id>   Match by accessibility identifier
+  --label <text>      Match by title or description
+  --path <path>       Match by tree path (from 'axon tree')
+
+Activates app before clicking. Uses CGEvent double-click at element center.
+Useful for opening files, selecting words, or triggering double-click actions.
+
+  axon double-click --app Finder --label "Documents"
+  axon double-click --app TextEdit --path "AXWindow[0]/AXScrollArea[0]/AXTextArea[0]"
+
+Output:
+  {"success": true, "element": {"role": "AXStaticText", "title": "Documents", "identifier": null}}
+"""
+
 let helpRightClick = """
 axon right-click - Right-click a UI element (context menu)
 
@@ -316,6 +334,7 @@ func showHelp(for command: String?) {
     case "launch":     text = helpLaunch
     case "tree":       text = helpTree
     case "click":       text = helpClick
+    case "double-click": text = helpDoubleClick
     case "right-click": text = helpRightClick
     case "type":       text = helpType
     case "scroll":     text = helpScroll
@@ -418,6 +437,31 @@ case "click":
         ))
     } else {
         printError(code: "click_failed", message: "AXPress action failed on element")
+        exit(1)
+    }
+
+case "double-click":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let (app, axApp) = resolveApp(name: appName)
+
+    activateApp(app)
+
+    let found = resolveElement(
+        appElement: axApp,
+        identifier: cli.option("identifier"),
+        label: cli.option("label"),
+        path: cli.option("path"),
+        appName: appName
+    )
+
+    if performDoubleClick(element: found.element) {
+        printJSON(DoubleClickOutput(
+            success: true,
+            element: ElementInfo(role: found.role, title: found.title, identifier: found.identifier)
+        ))
+    } else {
+        printError(code: "double_click_failed", message: "Double-click failed on element")
         exit(1)
     }
 

@@ -142,6 +142,39 @@ public func performRightClick(element: AXUIElement) -> Bool {
     return true
 }
 
+// MARK: - Double-Click
+
+public func performDoubleClick(element: AXUIElement) -> Bool {
+    guard let pos = axPointAttribute(element), let sz = axSizeAttribute(element) else {
+        return false
+    }
+
+    let x = pos.x + sz.width / 2
+    let y = pos.y + sz.height / 2
+    let point = CGPoint(x: x, y: y)
+
+    // First click
+    guard let mouseDown1 = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point, mouseButton: .left),
+          let mouseUp1 = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: point, mouseButton: .left),
+          let mouseDown2 = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point, mouseButton: .left),
+          let mouseUp2 = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: point, mouseButton: .left) else {
+        return false
+    }
+
+    mouseDown1.setIntegerValueField(.mouseEventClickState, value: 1)
+    mouseUp1.setIntegerValueField(.mouseEventClickState, value: 1)
+    mouseDown2.setIntegerValueField(.mouseEventClickState, value: 2)
+    mouseUp2.setIntegerValueField(.mouseEventClickState, value: 2)
+
+    mouseDown1.post(tap: .cghidEventTap)
+    mouseUp1.post(tap: .cghidEventTap)
+    usleep(50_000) // 50ms between clicks
+    mouseDown2.post(tap: .cghidEventTap)
+    mouseUp2.post(tap: .cghidEventTap)
+
+    return true
+}
+
 // MARK: - Type / Set Value
 
 public enum TypeMethod: String {

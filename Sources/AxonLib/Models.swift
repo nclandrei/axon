@@ -183,6 +183,16 @@ public struct RightClickOutput: Codable {
     }
 }
 
+public struct DoubleClickOutput: Codable {
+    public let success: Bool
+    public let element: ElementInfo
+
+    public init(success: Bool, element: ElementInfo) {
+        self.success = success
+        self.element = element
+    }
+}
+
 public struct TypeOutput: Codable {
     public let success: Bool
     public let method: String

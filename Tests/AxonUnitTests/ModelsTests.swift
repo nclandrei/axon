@@ -296,6 +296,31 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(decoded.element.identifier, "link1")
     }
 
+    // MARK: - DoubleClickOutput
+
+    func testDoubleClickOutputEncoding() {
+        let output = DoubleClickOutput(
+            success: true,
+            element: ElementInfo(role: "AXStaticText", title: "Documents", identifier: nil)
+        )
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"role\" : \"AXStaticText\""))
+    }
+
+    func testDoubleClickOutputRoundTrip() {
+        let output = DoubleClickOutput(
+            success: true,
+            element: ElementInfo(role: "AXCell", title: "file.txt", identifier: nil)
+        )
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(DoubleClickOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.element.role, "AXCell")
+        XCTAssertEqual(decoded.element.title, "file.txt")
+    }
+
     // MARK: - RightClickOutput
 
     func testRightClickOutputEncoding() {
