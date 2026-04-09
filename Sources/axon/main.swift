@@ -745,6 +745,36 @@ case "right-click":
         exit(1)
     }
 
+case "hover":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let (app, axApp) = resolveApp(name: appName)
+
+    activateApp(app)
+
+    let found = resolveElement(
+        appElement: axApp,
+        identifier: cli.option("identifier"),
+        label: cli.option("label"),
+        path: cli.option("path"),
+        appName: appName
+    )
+
+    if let position = performHover(element: found.element) {
+        let hoverOut = HoverOutput(
+            success: true,
+            element: ElementInfo(role: found.role, title: found.title, identifier: found.identifier),
+            position: position
+        )
+        emit(hoverOut, plain: [
+            ("hovered", [found.role, found.title, found.identifier].compactMap { $0 }.joined(separator: " ")),
+            ("position", "\(position.x), \(position.y)"),
+        ])
+    } else {
+        printError(code: "hover_failed", message: "Could not determine element position for hover")
+        exit(1)
+    }
+
 case "drag":
     checkAccessibilityPermission()
     let appName = cli.requireOption("app")
