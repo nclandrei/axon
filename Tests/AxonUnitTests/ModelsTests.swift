@@ -951,4 +951,146 @@ final class ModelsTests: XCTestCase {
         XCTAssertNil(decoded.oldValue)
         XCTAssertNil(decoded.newValue)
     }
+
+    // MARK: - VMInfo
+
+    func testVMInfoEncoding() {
+        let info = VMInfo(name: "axon-abc12345", base: "ghcr.io/cirruslabs/macos-sonoma-base:latest", created: "2026-04-11T10:30:00Z", ip: "192.168.64.5")
+        let data = try! jsonEncoder.encode(info)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"name\" : \"axon-abc12345\""))
+        XCTAssertTrue(json.contains("\"base\""))
+        XCTAssertTrue(json.contains("\"created\" : \"2026-04-11T10:30:00Z\""))
+        XCTAssertTrue(json.contains("\"ip\" : \"192.168.64.5\""))
+    }
+
+    func testVMInfoRoundTrip() {
+        let info = VMInfo(name: "axon-deadbeef", base: "sonoma", created: "2026-01-01T00:00:00Z", ip: "10.0.0.5")
+        let data = try! jsonEncoder.encode(info)
+        let decoded = try! JSONDecoder().decode(VMInfo.self, from: data)
+        XCTAssertEqual(decoded.name, "axon-deadbeef")
+        XCTAssertEqual(decoded.base, "sonoma")
+        XCTAssertEqual(decoded.created, "2026-01-01T00:00:00Z")
+        XCTAssertEqual(decoded.ip, "10.0.0.5")
+    }
+
+    func testVMInfoNilIP() {
+        let info = VMInfo(name: "axon-pending", base: "sonoma", created: "2026-01-01T00:00:00Z", ip: nil)
+        let data = try! jsonEncoder.encode(info)
+        let decoded = try! JSONDecoder().decode(VMInfo.self, from: data)
+        XCTAssertNil(decoded.ip)
+        XCTAssertEqual(decoded.name, "axon-pending")
+    }
+
+    // MARK: - VMAcquireOutput
+
+    func testVMAcquireOutputEncoding() {
+        let output = VMAcquireOutput(success: true, name: "axon-12ab34cd", base: "sonoma-base", created: "2026-04-11T10:30:00Z", ip: "192.168.64.10")
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"name\" : \"axon-12ab34cd\""))
+        XCTAssertTrue(json.contains("\"base\" : \"sonoma-base\""))
+        XCTAssertTrue(json.contains("\"created\" : \"2026-04-11T10:30:00Z\""))
+        XCTAssertTrue(json.contains("\"ip\" : \"192.168.64.10\""))
+    }
+
+    func testVMAcquireOutputRoundTrip() {
+        let output = VMAcquireOutput(success: true, name: "axon-feedface", base: "sequoia", created: "2026-02-15T12:00:00Z", ip: "192.168.64.20")
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(VMAcquireOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.name, "axon-feedface")
+        XCTAssertEqual(decoded.base, "sequoia")
+        XCTAssertEqual(decoded.created, "2026-02-15T12:00:00Z")
+        XCTAssertEqual(decoded.ip, "192.168.64.20")
+    }
+
+    func testVMAcquireOutputNilIP() {
+        let output = VMAcquireOutput(success: true, name: "axon-noip", base: "sonoma", created: "2026-01-01T00:00:00Z", ip: nil)
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(VMAcquireOutput.self, from: data)
+        XCTAssertNil(decoded.ip)
+    }
+
+    // MARK: - VMReleaseOutput
+
+    func testVMReleaseOutputEncoding() {
+        let output = VMReleaseOutput(success: true, name: "axon-cafebabe")
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"name\" : \"axon-cafebabe\""))
+    }
+
+    func testVMReleaseOutputRoundTrip() {
+        let output = VMReleaseOutput(success: true, name: "axon-12345678")
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(VMReleaseOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.name, "axon-12345678")
+    }
+
+    // MARK: - VMReleaseAllOutput
+
+    func testVMReleaseAllOutputEncoding() {
+        let output = VMReleaseAllOutput(success: true, released: 3, failed: 0)
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"released\" : 3"))
+        XCTAssertTrue(json.contains("\"failed\" : 0"))
+    }
+
+    func testVMReleaseAllOutputRoundTrip() {
+        let output = VMReleaseAllOutput(success: false, released: 2, failed: 1)
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(VMReleaseAllOutput.self, from: data)
+        XCTAssertFalse(decoded.success)
+        XCTAssertEqual(decoded.released, 2)
+        XCTAssertEqual(decoded.failed, 1)
+    }
+
+    func testVMReleaseAllOutputZeroCounts() {
+        let output = VMReleaseAllOutput(success: true, released: 0, failed: 0)
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(VMReleaseAllOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.released, 0)
+        XCTAssertEqual(decoded.failed, 0)
+    }
+
+    // MARK: - VMListOutput
+
+    func testVMListOutputEncodingEmpty() {
+        let output = VMListOutput(success: true, vms: [])
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"vms\""))
+    }
+
+    func testVMListOutputRoundTripEmpty() {
+        let output = VMListOutput(success: true, vms: [])
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(VMListOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertTrue(decoded.vms.isEmpty)
+    }
+
+    func testVMListOutputRoundTripMultiple() {
+        let vms = [
+            VMInfo(name: "axon-aaaa", base: "sonoma", created: "2026-01-01T00:00:00Z", ip: "10.0.0.1"),
+            VMInfo(name: "axon-bbbb", base: "sequoia", created: "2026-01-02T00:00:00Z", ip: "10.0.0.2"),
+            VMInfo(name: "axon-cccc", base: "ventura", created: "2026-01-03T00:00:00Z", ip: nil),
+        ]
+        let output = VMListOutput(success: true, vms: vms)
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(VMListOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.vms.count, 3)
+        XCTAssertEqual(decoded.vms[0].name, "axon-aaaa")
+        XCTAssertEqual(decoded.vms[1].base, "sequoia")
+        XCTAssertNil(decoded.vms[2].ip)
+    }
 }

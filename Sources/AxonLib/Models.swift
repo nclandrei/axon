@@ -466,6 +466,72 @@ public struct WaitForValueOutput: Codable {
     }
 }
 
+// MARK: - VM Management Output
+
+/// JSON-friendly representation of a registered VM. The `created` field is an
+/// ISO8601 timestamp string so the global encoder doesn't need a date strategy.
+public struct VMInfo: Codable {
+    public let name: String
+    public let base: String
+    public let created: String
+    public let ip: String?
+
+    public init(name: String, base: String, created: String, ip: String?) {
+        self.name = name
+        self.base = base
+        self.created = created
+        self.ip = ip
+    }
+}
+
+public struct VMAcquireOutput: Codable {
+    public let success: Bool
+    public let name: String
+    public let base: String
+    public let created: String
+    public let ip: String?
+
+    public init(success: Bool, name: String, base: String, created: String, ip: String?) {
+        self.success = success
+        self.name = name
+        self.base = base
+        self.created = created
+        self.ip = ip
+    }
+}
+
+public struct VMReleaseOutput: Codable {
+    public let success: Bool
+    public let name: String
+
+    public init(success: Bool, name: String) {
+        self.success = success
+        self.name = name
+    }
+}
+
+public struct VMReleaseAllOutput: Codable {
+    public let success: Bool
+    public let released: Int
+    public let failed: Int
+
+    public init(success: Bool, released: Int, failed: Int) {
+        self.success = success
+        self.released = released
+        self.failed = failed
+    }
+}
+
+public struct VMListOutput: Codable {
+    public let success: Bool
+    public let vms: [VMInfo]
+
+    public init(success: Bool, vms: [VMInfo]) {
+        self.success = success
+        self.vms = vms
+    }
+}
+
 // MARK: - Error Output
 
 public struct ErrorOutput: Codable {
