@@ -548,4 +548,99 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.contains("axon wait-for-value"))
     }
+
+    // MARK: - vm-acquire
+
+    func testVMAcquireHelp_exits0() {
+        let result = runAxon(["vm-acquire", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.stderr.contains("axon vm-acquire"),
+            "stderr should contain vm-acquire-specific help"
+        )
+    }
+
+    func testHelpVMAcquire_exits0() {
+        let result = runAxon(["help", "vm-acquire"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon vm-acquire"))
+    }
+
+    func testVMAcquireMissingBase_exits1() {
+        let result = runAxon(["vm-acquire"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json, "stderr should be valid JSON")
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    // MARK: - vm-release
+
+    func testVMReleaseHelp_exits0() {
+        let result = runAxon(["vm-release", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.stderr.contains("axon vm-release"),
+            "stderr should contain vm-release-specific help"
+        )
+    }
+
+    func testHelpVMRelease_exits0() {
+        let result = runAxon(["help", "vm-release"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon vm-release"))
+    }
+
+    func testVMReleaseMissingNameAndAll_exits1() {
+        let result = runAxon(["vm-release"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json, "stderr should be valid JSON")
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    // MARK: - vm-list
+
+    func testVMListHelp_exits0() {
+        let result = runAxon(["vm-list", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.stderr.contains("axon vm-list"),
+            "stderr should contain vm-list-specific help"
+        )
+    }
+
+    func testHelpVMList_exits0() {
+        let result = runAxon(["help", "vm-list"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon vm-list"))
+    }
+
+    func testVMList_exits0_validJSON() {
+        let result = runAxon(["vm-list"])
+        XCTAssertEqual(result.exitCode, 0, "vm-list should exit 0 even with empty registry")
+        let json = parseJSON(result.stdout)
+        XCTAssertNotNil(json, "stdout should be valid JSON")
+        XCTAssertEqual(json?["success"] as? Bool, true)
+        XCTAssertNotNil(json?["vms"] as? [Any], "JSON should have 'vms' array")
+    }
+
+    // MARK: - main --help mentions VM commands
+
+    func testMainHelpMentionsVMCommands() {
+        let result = runAxon(["--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.stderr.contains("vm-acquire"),
+            "Main help should advertise vm-acquire"
+        )
+        XCTAssertTrue(
+            result.stderr.contains("vm-release"),
+            "Main help should advertise vm-release"
+        )
+        XCTAssertTrue(
+            result.stderr.contains("vm-list"),
+            "Main help should advertise vm-list"
+        )
+    }
 }

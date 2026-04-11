@@ -19,6 +19,9 @@ private let registryFileURL: URL = {
     registryDirURL.appendingPathComponent("vms.json")
 }()
 
+/// Default location of the VM registry file (`~/.axon/vms.json`).
+public var defaultVMRegistryURL: URL { registryFileURL }
+
 // MARK: - VM Registry Model
 
 public struct VMEntry: Codable {
@@ -95,23 +98,36 @@ private func runTart(_ args: [String]) -> (stdout: String, stderr: String, exitC
 
 // MARK: - Registry Operations
 
-private func loadRegistry() -> VMRegistry {
+/// Loads a VM registry from the given URL. Returns an empty registry when the
+/// file is missing or unreadable, mirroring the original behavior.
+public func loadVMRegistry(at url: URL) -> VMRegistry {
     let decoder = JSONDecoder()
     decoder.dateDecodingStrategy = .iso8601
-    guard let data = try? Data(contentsOf: registryFileURL),
+    guard let data = try? Data(contentsOf: url),
           let reg = try? decoder.decode(VMRegistry.self, from: data) else {
         return VMRegistry(vms: [])
     }
     return reg
 }
 
-private func saveRegistry(_ registry: VMRegistry) throws {
-    try FileManager.default.createDirectory(at: registryDirURL, withIntermediateDirectories: true)
+/// Persists a VM registry to the given URL, creating any missing parent
+/// directories. Throws on write/encode failure.
+public func saveVMRegistry(_ registry: VMRegistry, to url: URL) throws {
+    let parent = url.deletingLastPathComponent()
+    try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
     encoder.dateEncodingStrategy = .iso8601
     let data = try encoder.encode(registry)
-    try data.write(to: registryFileURL, options: .atomic)
+    try data.write(to: url, options: .atomic)
+}
+
+private func loadRegistry() -> VMRegistry {
+    loadVMRegistry(at: registryFileURL)
+}
+
+private func saveRegistry(_ registry: VMRegistry) throws {
+    try saveVMRegistry(registry, to: registryFileURL)
 }
 
 private func withRegistryLock<T>(_ body: (inout VMRegistry) throws -> T) throws -> T {
@@ -239,6 +255,12 @@ public func vmRelease(name: String) -> Result<Bool, VMError> {
 /// List all axon-managed VMs from the registry.
 public func vmListEntries() -> [VMEntry] {
     loadRegistry().vms
+}
+
+/// List all VMs in a registry stored at the given URL. Used by tests to point
+/// at a temp file instead of the real `~/.axon/vms.json`.
+public func vmListEntries(at url: URL) -> [VMEntry] {
+    loadVMRegistry(at: url).vms
 }
 
 /// Release all axon-managed VMs. Returns (released, failed) counts.

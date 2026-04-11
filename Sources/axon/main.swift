@@ -54,6 +54,12 @@ Clipboard:
   axon clipboard --get                               Read clipboard text
   axon clipboard --set --text <string>               Write text to clipboard
 
+VM management (Tart):
+  axon vm-acquire --base <image> [--headless] [--timeout <s>]   Clone+boot ephemeral VM
+  axon vm-release --name <vm>                        Stop and delete a VM
+  axon vm-release --all                              Stop and delete all axon VMs
+  axon vm-list                                       List axon-managed VMs
+
 Waiting:
   axon wait --app <app> <target> --appear            Wait for element to exist
   axon wait --app <app> <target> --disappear         Wait for element to vanish
@@ -507,6 +513,70 @@ Output (set):
   {"success": true, "text": null}
 """
 
+let helpVMAcquire = """
+axon vm-acquire - Clone, boot, and register an ephemeral macOS VM via Tart
+
+  --base <image>      Base image to clone from (required, e.g. "sonoma-base"
+                      or "ghcr.io/cirruslabs/macos-sonoma-base:latest")
+  --headless          Boot the VM with --no-graphics (recommended for SSH)
+  --timeout <N>       Seconds to wait for the VM to acquire an IP (default: 60)
+
+Clones <base> via APFS COW (instant), starts the VM in the background, polls
+'tart ip' until an address is available, and registers the VM in
+~/.axon/vms.json. Requires Tart to be installed (brew install cirruslabs/cli/tart).
+
+  axon vm-acquire --base sonoma-base --headless
+  axon vm-acquire --base ghcr.io/cirruslabs/macos-sonoma-base:latest --timeout 120
+  axon vm-acquire --base sequoia --headless --timeout 90
+
+Output:
+  {"success": true, "name": "axon-12ab34cd", "base": "sonoma-base",
+   "created": "2026-04-11T10:30:00Z", "ip": "192.168.64.10"}
+
+On failure (tart missing, clone error, IP timeout):
+  {"error": "vm_acquire_failed", "message": "..."}
+"""
+
+let helpVMRelease = """
+axon vm-release - Stop and delete an axon-managed VM
+
+  --name <vm>         Name of the VM to release (returned by vm-acquire)
+  --all               Release every VM currently in the registry
+
+Provide exactly one of --name or --all. Stops the VM (ignores already-stopped),
+deletes it via 'tart delete', and removes it from ~/.axon/vms.json.
+
+  axon vm-release --name axon-12ab34cd
+  axon vm-release --all
+
+Output (--name):
+  {"success": true, "name": "axon-12ab34cd"}
+
+Output (--all):
+  {"success": true, "released": 3, "failed": 0}
+
+On failure (tart missing, delete error):
+  {"error": "vm_release_failed", "message": "..."}
+"""
+
+let helpVMList = """
+axon vm-list - List axon-managed VMs from the registry
+
+Reads ~/.axon/vms.json and returns every VM acquired via 'axon vm-acquire'
+that hasn't yet been released. Returns an empty list when the registry is
+missing or empty (does not error).
+
+  axon vm-list
+  axon vm-list | jq '.vms[].ip'
+
+Output:
+  {"success": true, "vms": [
+    {"name": "axon-12ab34cd", "base": "sonoma-base",
+     "created": "2026-04-11T10:30:00Z", "ip": "192.168.64.10"},
+    ...
+  ]}
+"""
+
 let helpWaitForValue = """
 axon wait-for-value - Wait until an element's value changes or matches a pattern
 
@@ -560,6 +630,9 @@ func showHelp(for command: String?) {
     case "move-resize": text = helpMoveResize
     case "clipboard":  text = helpClipboard
     case "wait-for-value": text = helpWaitForValue
+    case "vm-acquire":  text = helpVMAcquire
+    case "vm-release":  text = helpVMRelease
+    case "vm-list":     text = helpVMList
     default:            text = helpMain
     }
     FileHandle.standardError.write(text.data(using: .utf8)!)
@@ -570,6 +643,13 @@ func showHelp(for command: String?) {
 
 let cli = CLI()
 let format = OutputFormat(rawValue: cli.option("format") ?? "json") ?? .json
+
+/// Shared ISO8601 formatter for serializing VM `Date` fields as JSON strings.
+let isoFormatter: ISO8601DateFormatter = {
+    let f = ISO8601DateFormatter()
+    f.formatOptions = [.withInternetDateTime]
+    return f
+}()
 
 func emit<T: Encodable>(_ value: T, plain: [(String, String)]) {
     if format == .text {
@@ -1133,6 +1213,85 @@ case "wait-for-value":
         let desc = pattern != nil ? "Value did not match pattern '\(pattern!)' within \(Int(timeout))s" : "Value did not change within \(Int(timeout))s"
         printError(code: "timeout", message: desc)
         exit(1)
+    }
+
+case "vm-acquire":
+    let base = cli.requireOption("base")
+    let headless = cli.flag("headless")
+    let timeout = cli.intOption("timeout", default: 60)
+
+    switch vmAcquire(base: base, headless: headless, timeout: timeout) {
+    case .success(let entry):
+        let createdStr = isoFormatter.string(from: entry.created)
+        let out = VMAcquireOutput(
+            success: true,
+            name: entry.name,
+            base: entry.base,
+            created: createdStr,
+            ip: entry.ip
+        )
+        emit(out, plain: [
+            ("name", entry.name),
+            ("base", entry.base),
+            ("ip", entry.ip ?? "-"),
+            ("created", createdStr),
+        ])
+    case .failure(let err):
+        printError(code: "vm_acquire_failed", message: err.description)
+        exit(1)
+    }
+
+case "vm-release":
+    let all = cli.flag("all")
+    let name = cli.option("name")
+
+    if !all && name == nil {
+        printError(code: "missing_option", message: "Provide --name <vm> or --all")
+        exit(1)
+    }
+
+    if all {
+        let counts = vmReleaseAll()
+        let out = VMReleaseAllOutput(
+            success: counts.failed == 0,
+            released: counts.released,
+            failed: counts.failed
+        )
+        emit(out, plain: [
+            ("released", String(counts.released)),
+            ("failed", String(counts.failed)),
+        ])
+        if counts.failed > 0 { exit(1) }
+    } else {
+        // name is non-nil here because we returned early above
+        let vmName = name!
+        switch vmRelease(name: vmName) {
+        case .success:
+            let out = VMReleaseOutput(success: true, name: vmName)
+            emit(out, plain: [("released", vmName)])
+        case .failure(let err):
+            printError(code: "vm_release_failed", message: err.description)
+            exit(1)
+        }
+    }
+
+case "vm-list":
+    let entries = vmListEntries()
+    let infos = entries.map { entry in
+        VMInfo(
+            name: entry.name,
+            base: entry.base,
+            created: isoFormatter.string(from: entry.created),
+            ip: entry.ip
+        )
+    }
+    let out = VMListOutput(success: true, vms: infos)
+    if format == .text {
+        for info in infos {
+            print("\(info.name)  \(info.base)  \(info.ip ?? "-")  \(info.created)")
+        }
+    } else {
+        printJSON(out)
     }
 
 default:
