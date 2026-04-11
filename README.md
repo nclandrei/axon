@@ -159,6 +159,52 @@ axon wait --app MyApp --identifier loadingSpinner --disappear --timeout 30
 axon wait --app MyApp --label "Welcome" --appear
 ```
 
+### vm-acquire
+
+Clone, boot, and register an ephemeral macOS VM via [Tart](https://github.com/cirruslabs/tart).
+The clone is instant (APFS COW), and the command waits for the VM to acquire an
+IP before returning. Registers the VM in `~/.axon/vms.json` so `vm-list` and
+`vm-release --all` can find it.
+
+```bash
+axon vm-acquire --base sonoma-base --headless
+axon vm-acquire --base ghcr.io/cirruslabs/macos-sonoma-base:latest --timeout 120
+```
+
+Output:
+
+```json
+{
+  "success": true,
+  "name": "axon-12ab34cd",
+  "base": "sonoma-base",
+  "created": "2026-04-11T10:30:00Z",
+  "ip": "192.168.64.10"
+}
+```
+
+### vm-release
+
+Stop and delete an axon-managed VM, or release every VM in the registry at once.
+
+```bash
+axon vm-release --name axon-12ab34cd     # release one
+axon vm-release --all                    # release every registered VM
+```
+
+`--all` exits non-zero if any individual delete failed; the JSON includes both
+counts so callers can decide what to do.
+
+### vm-list
+
+List every VM currently in `~/.axon/vms.json`. Returns an empty list (not an
+error) when no VMs have been acquired yet.
+
+```bash
+axon vm-list
+axon vm-list | jq '.vms[].ip'
+```
+
 ## Error Handling
 
 Errors include context to help agents self-correct:
@@ -188,24 +234,46 @@ For VMs: grant permissions to the SSH server process (`sshd`).
 
 ## Recommended VM Setup
 
-Use [Tart](https://github.com/cirruslabs/tart) for headless macOS VMs on Apple Silicon:
+Use [Tart](https://github.com/cirruslabs/tart) for headless macOS VMs on Apple
+Silicon. axon ships built-in lifecycle commands so you don't need to wrap
+`tart` yourself:
 
 ```bash
-tart create --from-ipsw latest myvm
-tart run myvm
-ssh admin@$(tart ip myvm)
+# 1. One-time: pull a base image with Tart
+tart pull ghcr.io/cirruslabs/macos-sonoma-base:latest
+
+# 2. Acquire an ephemeral clone (instant via APFS COW, waits for IP)
+axon vm-acquire --base ghcr.io/cirruslabs/macos-sonoma-base:latest --headless
+
+# 3. SSH in and drive UI via axon
+ssh admin@$(axon vm-list | jq -r '.vms[-1].ip')
+
+# 4. When done, release the clone
+axon vm-release --name axon-12ab34cd
+
+# Or nuke every clone at once
+axon vm-release --all
 ```
+
+The registry lives at `~/.axon/vms.json`.
 
 ## Architecture
 
 ```
-Sources/axon/
-├── main.swift          CLI entry, comprehensive --help, command dispatch
-├── Models.swift        AXNode and Codable JSON output types
-├── AXHelpers.swift     AXUIElement wrappers, tree walking, element finding
-├── AppDiscovery.swift  Find running apps by name or bundle ID
-├── Actions.swift       launch, click, type, scroll, activate, close, wait
-└── Screenshot.swift    CGWindowListCreateImage capture
+Sources/
+├── axon/
+│   └── main.swift          CLI entry, comprehensive --help, command dispatch
+└── AxonLib/
+    ├── Models.swift        AXNode and Codable JSON output types
+    ├── AXHelpers.swift     AXUIElement wrappers, tree walking, element finding
+    ├── AppDiscovery.swift  Find running apps by name or bundle ID
+    ├── Actions.swift       launch, click, type, scroll, activate, close, wait
+    ├── Screenshot.swift    CGWindowListCreateImage capture
+    ├── VMManager.swift     Tart VM lifecycle + ~/.axon/vms.json registry
+    └── CLI.swift           Argument parser
 ```
+
+The library target (`AxonLib`) holds all logic and is `@testable import`-ed
+from the unit tests. The `axon` executable target is a thin dispatch shim.
 
 No external dependencies. Pure Swift with Cocoa and CoreGraphics. Swift Package Manager.
