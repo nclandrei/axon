@@ -43,7 +43,7 @@ final class E2ETests: AxonE2ETestCase {
 
         let json = parseJSON(result.stdout)
         XCTAssertNotNil(json, "Output should be valid JSON")
-        // success may be false due to timing (isActive check races with activation),
+        // success may be false if the test runner reclaims focus before isActive is checked,
         // but the key must exist and the command must not error
         XCTAssertNotNil(json?["success"] as? Bool, "Should have 'success' key")
     }
@@ -215,8 +215,8 @@ final class E2ETests: AxonE2ETestCase {
         killTask.waitUntilExit()
         Thread.sleep(forTimeInterval: 1.0)
 
-        // Launch TextEdit
-        let launchResult = runAxon(["launch", "--name", "TextEdit"])
+        // Launch TextEdit in the background
+        let launchResult = runAxon(["launch", "--name", "TextEdit", "--background"])
         XCTAssertEqual(launchResult.exitCode, 0, "Launch should succeed. stderr: \(launchResult.stderr)")
 
         let launchJSON = parseJSON(launchResult.stdout)
@@ -286,5 +286,208 @@ final class E2ETests: AxonE2ETestCase {
         let errJSON = parseJSON(result.stderr)
         XCTAssertNotNil(errJSON, "Stderr should be valid JSON")
         XCTAssertEqual(errJSON?["error"] as? String, "timeout")
+    }
+
+    // MARK: - 14. Clipboard round-trip
+
+    func testClipboardSetAndGet() {
+        let sentinel = "axon-e2e-test-\(UUID().uuidString)"
+
+        // Set clipboard
+        let setResult = runAxon(["clipboard", "--set", "--text", sentinel])
+        XCTAssertEqual(setResult.exitCode, 0, "clipboard --set should exit 0. stderr: \(setResult.stderr)")
+        let setJSON = parseJSON(setResult.stdout)
+        XCTAssertEqual(setJSON?["success"] as? Bool, true)
+
+        // Get clipboard and verify the value matches
+        let getResult = runAxon(["clipboard", "--get"])
+        XCTAssertEqual(getResult.exitCode, 0, "clipboard --get should exit 0. stderr: \(getResult.stderr)")
+        let getJSON = parseJSON(getResult.stdout)
+        XCTAssertEqual(getJSON?["success"] as? Bool, true)
+        XCTAssertEqual(getJSON?["text"] as? String, sentinel, "Clipboard should contain the text we just set")
+    }
+
+    // MARK: - 15. Clipboard missing option
+
+    func testClipboardMissingOption() {
+        let result = runAxon(["clipboard"])
+        XCTAssertEqual(result.exitCode, 1, "clipboard without --get or --set should fail")
+
+        let errJSON = parseJSON(result.stderr)
+        XCTAssertEqual(errJSON?["error"] as? String, "missing_option")
+    }
+
+    // MARK: - 16. Focused element on Finder
+
+    func testFocusedFinder() throws {
+        // Activate Finder first so it has focus
+        let activateResult = runAxon(["activate", "--app", "Finder"])
+        XCTAssertEqual(activateResult.exitCode, 0)
+        Thread.sleep(forTimeInterval: 0.5)
+
+        let result = runAxon(["focused", "--app", "Finder"])
+        try skipIfNoAccessibility(result)
+        XCTAssertEqual(result.exitCode, 0, "focused should exit 0. stderr: \(result.stderr)")
+
+        let json = parseJSON(result.stdout)
+        XCTAssertEqual(json?["success"] as? Bool, true)
+        // Finder should always have some focused element when active
+        // Even if element is nil (no focus), the command should succeed with success: true
+    }
+
+    // MARK: - 17. Window info for Finder
+
+    func testWindowInfoFinder() throws {
+        let result = runAxon(["window-info", "--app", "Finder"])
+        try skipIfNoAccessibility(result)
+        XCTAssertEqual(result.exitCode, 0, "window-info should exit 0. stderr: \(result.stderr)")
+
+        let json = parseJSON(result.stdout)
+        XCTAssertEqual(json?["success"] as? Bool, true)
+
+        let windows = json?["windows"] as? [[String: Any]]
+        XCTAssertNotNil(windows, "Should have 'windows' array")
+
+        // If Finder has windows, each should have position and size
+        if let firstWindow = windows?.first {
+            XCTAssertNotNil(firstWindow["position"], "Window should have position")
+            XCTAssertNotNil(firstWindow["size"], "Window should have size")
+        }
+    }
+
+    // MARK: - 18. Window info with --window filter
+
+    func testWindowInfoFilterNonExistent() throws {
+        let result = runAxon(["window-info", "--app", "Finder", "--window", "NonExistentWindow12345"])
+        try skipIfNoAccessibility(result)
+        XCTAssertEqual(result.exitCode, 0, "window-info should exit 0 even with no match. stderr: \(result.stderr)")
+
+        let json = parseJSON(result.stdout)
+        XCTAssertEqual(json?["success"] as? Bool, true)
+
+        let windows = json?["windows"] as? [[String: Any]]
+        XCTAssertNotNil(windows)
+        XCTAssertEqual(windows?.count, 0, "No windows should match a non-existent title")
+    }
+
+    // MARK: - 19. Drive TextEdit: type, format, move-resize, screenshot
+
+    /// A real end-to-end test that launches TextEdit in the background, types text,
+    /// verifies it, toggles bold formatting, moves/resizes the window, takes a
+    /// screenshot, and verifies every side-effect — all without stealing focus.
+    func testDriveTextEdit() throws {
+        // --- Setup: kill any lingering TextEdit ---
+        let kill = Process()
+        kill.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+        kill.arguments = ["TextEdit"]
+        try? kill.run()
+        kill.waitUntilExit()
+        Thread.sleep(forTimeInterval: 1.0)
+
+        defer {
+            let k = Process()
+            k.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+            k.arguments = ["TextEdit"]
+            try? k.run()
+            k.waitUntilExit()
+        }
+
+        // --- Launch TextEdit in the background ---
+        let launch = runAxon(["launch", "--name", "TextEdit", "--background"])
+        XCTAssertEqual(launch.exitCode, 0, "Launch failed. stderr: \(launch.stderr)")
+        Thread.sleep(forTimeInterval: 2.0)
+
+        // --- Step 1: Type text via AX (no activation) and verify via get-value ---
+        let sentinel = "Hello from Axon E2E \(UUID().uuidString.prefix(8))"
+        let typeResult = runAxon(["type", "--app", "TextEdit", "--no-activate", "--identifier", "First Text View", "--text", sentinel])
+        try skipIfNoAccessibility(typeResult)
+        XCTAssertEqual(typeResult.exitCode, 0, "type failed. stderr: \(typeResult.stderr)")
+
+        let getValue = runAxon(["get-value", "--app", "TextEdit", "--no-activate", "--identifier", "First Text View"])
+        XCTAssertEqual(getValue.exitCode, 0, "get-value failed. stderr: \(getValue.stderr)")
+        let valueJSON = parseJSON(getValue.stdout)
+        XCTAssertEqual(valueJSON?["success"] as? Bool, true)
+        let textValue = valueJSON?["value"] as? String ?? ""
+        XCTAssertTrue(textValue.contains(sentinel), "Text area should contain typed text. Got: \(textValue)")
+
+        // --- Step 2: Toggle bold checkbox via AXPress (no activation needed) ---
+        // Read the initial bold state (may vary depending on TextEdit defaults)
+        let boldBefore = runAxon(["get-value", "--app", "TextEdit", "--no-activate", "--label", "bold"])
+        XCTAssertEqual(boldBefore.exitCode, 0, "get-value bold failed. stderr: \(boldBefore.stderr)")
+        let boldValBefore = parseJSON(boldBefore.stdout)?["value"] as? String
+        XCTAssertNotNil(boldValBefore, "Bold should have a value")
+
+        // Click bold — should toggle it
+        let clickBold = runAxon(["click", "--app", "TextEdit", "--no-activate", "--label", "bold"])
+        XCTAssertEqual(clickBold.exitCode, 0, "click bold failed. stderr: \(clickBold.stderr)")
+        Thread.sleep(forTimeInterval: 0.3)
+
+        let boldAfter = runAxon(["get-value", "--app", "TextEdit", "--no-activate", "--label", "bold"])
+        XCTAssertEqual(boldAfter.exitCode, 0)
+        let boldValAfter = parseJSON(boldAfter.stdout)?["value"] as? String
+        XCTAssertNotEqual(boldValBefore, boldValAfter, "Bold should toggle after clicking")
+
+        // Click again — should toggle back
+        let clickBoldOff = runAxon(["click", "--app", "TextEdit", "--no-activate", "--label", "bold"])
+        XCTAssertEqual(clickBoldOff.exitCode, 0)
+        Thread.sleep(forTimeInterval: 0.3)
+
+        let boldReset = runAxon(["get-value", "--app", "TextEdit", "--no-activate", "--label", "bold"])
+        let boldValReset = parseJSON(boldReset.stdout)?["value"] as? String
+        XCTAssertEqual(boldValBefore, boldValReset, "Bold should return to original state after two clicks")
+
+        // --- Step 3: Move and resize the window, verify via window-info ---
+        let moveResize = runAxon(["move-resize", "--app", "TextEdit", "--no-activate", "--x", "50", "--y", "50", "--width", "900", "--height", "700"])
+        XCTAssertEqual(moveResize.exitCode, 0, "move-resize failed. stderr: \(moveResize.stderr)")
+        Thread.sleep(forTimeInterval: 0.5)
+
+        let winInfo = runAxon(["window-info", "--app", "TextEdit", "--no-activate"])
+        XCTAssertEqual(winInfo.exitCode, 0, "window-info failed. stderr: \(winInfo.stderr)")
+        let winJSON = parseJSON(winInfo.stdout)
+        let windows = winJSON?["windows"] as? [[String: Any]]
+        XCTAssertNotNil(windows)
+        XCTAssertGreaterThan(windows?.count ?? 0, 0, "TextEdit should have at least one window")
+
+        if let win = windows?.first {
+            let pos = win["position"] as? [String: Any]
+            let sz = win["size"] as? [String: Any]
+            XCTAssertNotNil(pos)
+            XCTAssertNotNil(sz)
+
+            let x = pos?["x"] as? Double ?? -1
+            let y = pos?["y"] as? Double ?? -1
+            XCTAssertEqual(x, 50, accuracy: 10, "Window x should be ~50")
+            XCTAssertEqual(y, 50, accuracy: 30, "Window y should be ~50 (menu bar may offset)")
+
+            let w = sz?["width"] as? Double ?? -1
+            let h = sz?["height"] as? Double ?? -1
+            XCTAssertEqual(w, 900, accuracy: 10, "Window width should be ~900")
+            XCTAssertEqual(h, 700, accuracy: 10, "Window height should be ~700")
+        }
+
+        // --- Step 4: Screenshot and verify the file exists with real content ---
+        let screenshotPath = "/tmp/axon-e2e-drive-textedit.png"
+        addTeardownBlock {
+            try? FileManager.default.removeItem(atPath: screenshotPath)
+        }
+
+        let screenshot = runAxon(["screenshot", "--app", "TextEdit", "--no-activate", "--output", screenshotPath])
+        XCTAssertEqual(screenshot.exitCode, 0, "screenshot failed. stderr: \(screenshot.stderr)")
+        let ssJSON = parseJSON(screenshot.stdout)
+        XCTAssertEqual(ssJSON?["success"] as? Bool, true)
+
+        let attrs = try FileManager.default.attributesOfItem(atPath: screenshotPath)
+        let fileSize = attrs[.size] as? Int ?? 0
+        XCTAssertGreaterThan(fileSize, 1000, "Screenshot should be a real image (>1KB), got \(fileSize) bytes")
+
+        // --- Step 5: Type with --clear to replace text, verify ---
+        let replacement = "Replaced text"
+        let clearType = runAxon(["type", "--app", "TextEdit", "--no-activate", "--identifier", "First Text View", "--text", replacement, "--clear"])
+        XCTAssertEqual(clearType.exitCode, 0, "type --clear failed. stderr: \(clearType.stderr)")
+
+        let getValueAfter = runAxon(["get-value", "--app", "TextEdit", "--no-activate", "--identifier", "First Text View"])
+        XCTAssertEqual(getValueAfter.exitCode, 0)
+        let afterValue = parseJSON(getValueAfter.stdout)?["value"] as? String ?? ""
+        XCTAssertEqual(afterValue, replacement, "Text area should contain only the replacement text")
     }
 }

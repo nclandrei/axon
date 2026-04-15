@@ -735,6 +735,8 @@ if cli.hasHelp() {
     exit(0)
 }
 
+let noActivate = cli.flag("no-activate")
+
 switch command {
 case "list":
     let includeAccessory = cli.flag("all")
@@ -752,6 +754,7 @@ case "launch":
     let name = cli.option("name")
     let bundleID = cli.option("bundle-id")
     let path = cli.option("path")
+    let background = cli.flag("background")
 
     let timeout = TimeInterval(cli.intOption("timeout", default: 5))
 
@@ -760,7 +763,7 @@ case "launch":
         exit(1)
     }
 
-    if let app = launchApp(name: name, bundleID: bundleID, path: path, timeout: timeout) {
+    if let app = launchApp(name: name, bundleID: bundleID, path: path, background: background, timeout: timeout) {
         let launchOut = LaunchOutput(
             success: true,
             name: app.localizedName ?? name ?? "unknown",
@@ -799,7 +802,7 @@ case "click":
     let appName = cli.requireOption("app")
     let (app, axApp) = resolveApp(name: appName)
 
-    activateApp(app)
+    if !noActivate { activateApp(app) }
 
     let found = resolveElement(
         appElement: axApp,
@@ -832,7 +835,7 @@ case "double-click":
     let appName = cli.requireOption("app")
     let (app, axApp) = resolveApp(name: appName)
 
-    activateApp(app)
+    if !noActivate { activateApp(app) }
 
     let found = resolveElement(
         appElement: axApp,
@@ -865,7 +868,7 @@ case "right-click":
     let appName = cli.requireOption("app")
     let (app, axApp) = resolveApp(name: appName)
 
-    activateApp(app)
+    if !noActivate { activateApp(app) }
 
     let found = resolveElement(
         appElement: axApp,
@@ -898,7 +901,7 @@ case "hover":
     let appName = cli.requireOption("app")
     let (app, axApp) = resolveApp(name: appName)
 
-    activateApp(app)
+    if !noActivate { activateApp(app) }
 
     let found = resolveElement(
         appElement: axApp,
@@ -928,7 +931,7 @@ case "drag":
     let appName = cli.requireOption("app")
     let (app, axApp) = resolveApp(name: appName)
 
-    activateApp(app)
+    if !noActivate { activateApp(app) }
 
     let fromId = cli.option("from-identifier")
     let fromLabel = cli.option("from-label")
@@ -971,7 +974,7 @@ case "type":
     let clear = cli.flag("clear")
     let (app, axApp) = resolveApp(name: appName)
 
-    activateApp(app)
+    if !noActivate { activateApp(app) }
 
     let found = resolveElement(
         appElement: axApp,
@@ -994,7 +997,7 @@ case "key":
     let keyName = cli.requireOption("key")
     let (app, _) = resolveApp(name: appName)
 
-    activateApp(app)
+    if !noActivate { activateApp(app) }
 
     let modifierStr = cli.option("modifiers")
     let flags = modifierStr.map { parseModifiers($0) } ?? CGEventFlags()
@@ -1024,7 +1027,7 @@ case "scroll":
         exit(1)
     }
 
-    activateApp(app)
+    if !noActivate { activateApp(app) }
 
     let found = resolveElement(
         appElement: axApp,
@@ -1051,7 +1054,7 @@ case "screenshot":
 
     let (app, axApp) = resolveApp(name: appName)
 
-    activateApp(app)
+    if !noActivate { activateApp(app) }
     usleep(200_000) // 200ms for window to be fully visible
 
     if hasElementTarget {
@@ -1151,7 +1154,7 @@ case "get-value":
     let appName = cli.requireOption("app")
     let (app, axApp) = resolveApp(name: appName)
 
-    activateApp(app)
+    if !noActivate { activateApp(app) }
 
     let found = resolveElement(
         appElement: axApp,
@@ -1201,7 +1204,7 @@ case "menu":
     } else {
         let menuPath = cli.requireOption("path")
 
-        activateApp(app)
+        if !noActivate { activateApp(app) }
 
         if let found = performMenuAction(axApp: axApp, menuPath: menuPath) {
             printJSON(MenuOutput(
@@ -1243,7 +1246,7 @@ case "move-resize":
         exit(1)
     }
 
-    activateApp(app)
+    if !noActivate { activateApp(app) }
 
     // Find target window
     let windows: [AXUIElement] = axAttribute(axApp, kAXWindowsAttribute as String) ?? []
@@ -1311,7 +1314,7 @@ case "set-value":
     let value = cli.requireOption("value")
     let (app, axApp) = resolveApp(name: appName)
 
-    activateApp(app)
+    if !noActivate { activateApp(app) }
 
     let found = resolveElement(
         appElement: axApp,

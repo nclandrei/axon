@@ -5,14 +5,16 @@ import CoreGraphics
 // MARK: - Launch
 
 /// Launch an app by name, bundle ID, or path. Waits up to 5s for it to start.
-public func launchApp(name: String?, bundleID: String?, path: String?, timeout: TimeInterval = 5.0) -> NSRunningApplication? {
+public func launchApp(name: String?, bundleID: String?, path: String?, background: Bool = false, timeout: TimeInterval = 5.0) -> NSRunningApplication? {
     let workspace = NSWorkspace.shared
 
     if let path = path {
         let url = URL(fileURLWithPath: path)
         let sem = DispatchSemaphore(value: 0)
         var launched: NSRunningApplication?
-        workspace.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { app, _ in
+        let config = NSWorkspace.OpenConfiguration()
+        if background { config.activates = false }
+        workspace.openApplication(at: url, configuration: config) { app, _ in
             launched = app
             sem.signal()
         }
@@ -25,13 +27,34 @@ public func launchApp(name: String?, bundleID: String?, path: String?, timeout: 
     }
 
     if let bundleID = bundleID {
-        if workspace.launchApplication(withBundleIdentifier: bundleID, options: [], additionalEventParamDescriptor: nil, launchIdentifier: nil) {
+        if let appURL = workspace.urlForApplication(withBundleIdentifier: bundleID) {
+            let sem = DispatchSemaphore(value: 0)
+            var launched: NSRunningApplication?
+            let config = NSWorkspace.OpenConfiguration()
+            if background { config.activates = false }
+            workspace.openApplication(at: appURL, configuration: config) { app, _ in
+                launched = app
+                sem.signal()
+            }
+            _ = sem.wait(timeout: .now() + timeout)
+            if let app = launched { return app }
             return waitForApp(bundleID: bundleID, name: nil, timeout: timeout)
         }
     }
 
     if let name = name {
-        if workspace.launchApplication(name) {
+        // Resolve app name to URL via Spotlight-style lookup
+        if let appURL = NSWorkspace.shared.fullPath(forApplication: name).flatMap({ URL(fileURLWithPath: $0) }) {
+            let sem = DispatchSemaphore(value: 0)
+            var launched: NSRunningApplication?
+            let config = NSWorkspace.OpenConfiguration()
+            if background { config.activates = false }
+            workspace.openApplication(at: appURL, configuration: config) { app, _ in
+                launched = app
+                sem.signal()
+            }
+            _ = sem.wait(timeout: .now() + timeout)
+            if let app = launched { return app }
             return waitForApp(bundleID: nil, name: name, timeout: timeout)
         }
     }
