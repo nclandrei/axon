@@ -52,6 +52,10 @@ Window management:
   axon close --app <app> --window <title>            Close specific window
   axon close --app <app> --quit                      Quit the app entirely
   axon move-resize --app <app> [--window <title>] [--x N] [--y N] [--width N] [--height N]
+  axon move-resize --app <app> --minimize             Minimize window to dock
+  axon move-resize --app <app> --restore              Restore minimized window
+  axon move-resize --app <app> --zoom                 Zoom (maximize) window
+  axon move-resize --app <app> --fullscreen           Toggle fullscreen
 
 Clipboard:
   axon clipboard --get                               Read clipboard text
@@ -487,7 +491,7 @@ Output (--list):
 """
 
 let helpMoveResize = """
-axon move-resize - Reposition or resize an app window
+axon move-resize - Reposition, resize, or change window state
 
   --app <name>        App name or bundle ID (required)
   --window <title>    Target specific window by title (optional, defaults to frontmost)
@@ -495,17 +499,26 @@ axon move-resize - Reposition or resize an app window
   --y <N>             Y position (pixels from top screen edge)
   --width <N>         Window width in pixels
   --height <N>        Window height in pixels
+  --minimize          Minimize the window to the dock
+  --restore           Restore a minimized window
+  --zoom              Zoom (maximize) the window — like clicking the green button
+  --fullscreen        Toggle fullscreen mode
 
-Provide any combination of --x, --y, --width, --height. Omitted dimensions keep
-their current values. At least one dimension must be specified.
+Position/size flags can be combined. Window action flags (minimize, restore, zoom,
+fullscreen) are mutually exclusive and cannot be combined with position/size flags.
 
   axon move-resize --app Finder --x 100 --y 200
   axon move-resize --app Finder --width 800 --height 600
   axon move-resize --app TextEdit --x 0 --y 0 --width 1920 --height 1080
   axon move-resize --app Safari --window "GitHub" --x 50 --y 50
+  axon move-resize --app Finder --minimize
+  axon move-resize --app Finder --restore
+  axon move-resize --app Finder --zoom
+  axon move-resize --app Safari --fullscreen
 
 Output:
-  {"success": true, "position": {"x": 100, "y": 200}, "size": {"width": 800, "height": 600}}
+  {"success": true, "action": "move-resize", "position": {"x": 100, "y": 200}, "size": {"width": 800, "height": 600}}
+  {"success": true, "action": "minimize", "position": null, "size": null}
 """
 
 let helpClipboard = """
@@ -1211,18 +1224,27 @@ case "move-resize":
     let (app, axApp) = resolveApp(name: appName)
     let windowTitle = cli.option("window")
 
+    let doMinimize = cli.flag("minimize")
+    let doRestore = cli.flag("restore")
+    let doZoom = cli.flag("zoom")
+    let doFullscreen = cli.flag("fullscreen")
+
     let x = cli.doubleOption("x")
     let y = cli.doubleOption("y")
     let width = cli.doubleOption("width")
     let height = cli.doubleOption("height")
 
-    if x == nil && y == nil && width == nil && height == nil {
-        printError(code: "missing_option", message: "Provide at least one of --x, --y, --width, --height")
+    let hasPositionSize = x != nil || y != nil || width != nil || height != nil
+    let hasWindowAction = doMinimize || doRestore || doZoom || doFullscreen
+
+    if !hasPositionSize && !hasWindowAction {
+        printError(code: "missing_option", message: "Provide at least one of --x, --y, --width, --height, --minimize, --restore, --zoom, --fullscreen")
         exit(1)
     }
 
     activateApp(app)
 
+    // Find target window
     let windows: [AXUIElement] = axAttribute(axApp, kAXWindowsAttribute as String) ?? []
     let targetWindow: AXUIElement?
     if let title = windowTitle {
@@ -1240,10 +1262,28 @@ case "move-resize":
         exit(1)
     }
 
-    let result = performMoveResize(window: window, x: x, y: y, width: width, height: height)
-    let success = result.positionSet || result.sizeSet
-    printJSON(MoveResizeOutput(success: success, position: result.newPosition, size: result.newSize))
-    if !success { exit(1) }
+    if doMinimize {
+        let success = performMinimize(window: window)
+        printJSON(MoveResizeOutput(success: success, action: "minimize", position: nil, size: nil))
+        if !success { exit(1) }
+    } else if doRestore {
+        let success = performRestore(window: window)
+        printJSON(MoveResizeOutput(success: success, action: "restore", position: nil, size: nil))
+        if !success { exit(1) }
+    } else if doZoom {
+        let success = performZoom(window: window)
+        printJSON(MoveResizeOutput(success: success, action: "zoom", position: nil, size: nil))
+        if !success { exit(1) }
+    } else if doFullscreen {
+        let success = performFullscreen(window: window)
+        printJSON(MoveResizeOutput(success: success, action: "fullscreen", position: nil, size: nil))
+        if !success { exit(1) }
+    } else {
+        let result = performMoveResize(window: window, x: x, y: y, width: width, height: height)
+        let success = result.positionSet || result.sizeSet
+        printJSON(MoveResizeOutput(success: success, action: "move-resize", position: result.newPosition, size: result.newSize))
+        if !success { exit(1) }
+    }
 
 case "clipboard":
     let isGet = cli.flag("get")

@@ -940,6 +940,27 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(decoded.size?.width, 640)
     }
 
+    func testMoveResizeOutputWithAction() {
+        let output = MoveResizeOutput(success: true, action: "minimize", position: nil, size: nil)
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"action\" : \"minimize\""))
+        let decoded = try! JSONDecoder().decode(MoveResizeOutput.self, from: data)
+        XCTAssertNil(decoded.position)
+        XCTAssertNil(decoded.size)
+    }
+
+    func testMoveResizeOutputWithNilAction() {
+        let output = MoveResizeOutput(success: true, position: AXPoint(x: 100, y: 200), size: AXSize(width: 800, height: 600))
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(MoveResizeOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertNil(decoded.action)
+        XCTAssertEqual(decoded.position?.x, 100)
+        XCTAssertEqual(decoded.size?.width, 800)
+    }
+
     // MARK: - ClipboardOutput
 
     func testClipboardOutputEncodingGet() {

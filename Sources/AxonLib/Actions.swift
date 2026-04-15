@@ -625,6 +625,39 @@ public func performWait(appElement: AXUIElement, selector: ElementSelector, appe
     return nil // timeout
 }
 
+// MARK: - Window Actions
+
+/// Minimize a window
+public func performMinimize(window: AXUIElement) -> Bool {
+    let result = AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, true as CFTypeRef)
+    return result == .success
+}
+
+/// Restore (un-minimize) a window
+public func performRestore(window: AXUIElement) -> Bool {
+    let result = AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, false as CFTypeRef)
+    return result == .success
+}
+
+/// Zoom (maximize) a window — equivalent to clicking the green zoom button
+public func performZoom(window: AXUIElement) -> Bool {
+    // Try pressing the zoom button
+    if let zoomButton: AXUIElement = axAttribute(window, kAXZoomButtonAttribute as String) {
+        let result = AXUIElementPerformAction(zoomButton, kAXPressAction as CFString)
+        return result == .success
+    }
+    return false
+}
+
+/// Toggle fullscreen on a window
+public func performFullscreen(window: AXUIElement) -> Bool {
+    // Read current fullscreen state
+    let isFullScreen = axBoolAttribute(window, "AXFullScreen") ?? false
+    // Toggle it
+    let result = AXUIElementSetAttributeValue(window, "AXFullScreen" as CFString, (!isFullScreen) as CFTypeRef)
+    return result == .success
+}
+
 // MARK: - Move / Resize Window
 
 public struct MoveResizeResult {

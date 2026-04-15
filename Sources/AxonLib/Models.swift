@@ -472,11 +472,13 @@ public struct DragOutput: Codable {
 
 public struct MoveResizeOutput: Codable {
     public let success: Bool
+    public let action: String?
     public let position: AXPoint?
     public let size: AXSize?
 
-    public init(success: Bool, position: AXPoint?, size: AXSize?) {
+    public init(success: Bool, action: String? = nil, position: AXPoint?, size: AXSize?) {
         self.success = success
+        self.action = action
         self.position = position
         self.size = size
     }

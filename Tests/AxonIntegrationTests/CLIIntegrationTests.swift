@@ -467,6 +467,18 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertTrue(msg.contains("--x") || msg.contains("--y") || msg.contains("--width") || msg.contains("--height"))
     }
 
+    func testMoveResizeHelpMentionsMinimize() {
+        let result = runAxon(["move-resize", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("--minimize"))
+    }
+
+    func testMoveResizeHelpMentionsFullscreen() {
+        let result = runAxon(["move-resize", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("--fullscreen"))
+    }
+
     // MARK: - clipboard
 
     func testClipboardHelp_exits0() {
