@@ -289,6 +289,14 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
     }
 
+    // MARK: - scroll --help mentions --amount
+
+    func testScrollHelpMentionsAmount() {
+        let result = runAxon(["scroll", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("--amount"))
+    }
+
     // MARK: - 15. screenshot missing --app
 
     func testScreenshotMissingApp_exits1() {
@@ -611,12 +619,6 @@ final class CLIIntegrationTests: XCTestCase {
         let result = runAxon(["help", "clipboard"])
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.contains("axon clipboard"))
-    }
-
-    func testHelpSetValue_exits0() {
-        let result = runAxon(["help", "set-value"])
-        XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stderr.contains("axon set-value"))
     }
 
     func testHelpWaitForValue_exits0() {

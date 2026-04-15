@@ -60,4 +60,26 @@ final class ScrollDirectionTests: XCTestCase {
         XCTAssertEqual(TypeMethod.direct.rawValue, "direct")
         XCTAssertEqual(TypeMethod.keyboard.rawValue, "keyboard")
     }
+
+    // MARK: - Scroll --amount via CLI
+
+    func testScrollAmountDefaultValue() {
+        let cli = CLI(args: ["scroll", "--app", "Finder", "--identifier", "x", "--direction", "down"])
+        XCTAssertEqual(cli.intOption("amount", default: 3), 3)
+    }
+
+    func testScrollAmountCustomValue() {
+        let cli = CLI(args: ["scroll", "--app", "Finder", "--identifier", "x", "--direction", "down", "--amount", "10"])
+        XCTAssertEqual(cli.intOption("amount", default: 3), 10)
+    }
+
+    func testScrollAmountLargeValue() {
+        let cli = CLI(args: ["scroll", "--app", "Finder", "--identifier", "x", "--direction", "up", "--amount", "100"])
+        XCTAssertEqual(cli.intOption("amount", default: 3), 100)
+    }
+
+    func testScrollAmountInvalidFallsToDefault() {
+        let cli = CLI(args: ["scroll", "--app", "Finder", "--identifier", "x", "--direction", "up", "--amount", "abc"])
+        XCTAssertEqual(cli.intOption("amount", default: 3), 3)
+    }
 }
