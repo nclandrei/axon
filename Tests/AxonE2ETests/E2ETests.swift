@@ -232,7 +232,21 @@ final class E2ETests: AxonE2ETestCase {
         }
     }
 
-    // MARK: - 12. Wait timeout
+    // MARK: - 12. Tree Finder includes actions
+
+    func testTreeFinderIncludesActions() throws {
+        let result = runAxon(["tree", "--app", "Finder", "--depth", "3"])
+        try skipIfNoAccessibility(result)
+        XCTAssertEqual(result.exitCode, 0, "axon tree should exit 0. stderr: \(result.stderr)")
+
+        // The JSON output should contain at least one "actions" key
+        XCTAssertTrue(
+            result.stdout.contains("\"actions\""),
+            "Tree output should contain at least one node with actions"
+        )
+    }
+
+    // MARK: - 13. Wait timeout
 
     func testWaitTimeout() throws {
         let result = runAxon(["wait", "--app", "Finder", "--identifier", "impossibleElement", "--appear", "--timeout", "1"])

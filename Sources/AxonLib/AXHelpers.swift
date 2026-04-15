@@ -85,6 +85,30 @@ public func buildTree(element: AXUIElement, depth: Int, maxDepth: Int, path: Str
     }()
     let enabled: Bool? = axBoolAttribute(element, kAXEnabledAttribute as String)
     let focused: Bool? = axBoolAttribute(element, kAXFocusedAttribute as String)
+    let selected: Bool? = axBoolAttribute(element, kAXSelectedAttribute as String)
+    let expanded: Bool? = axBoolAttribute(element, "AXExpanded")
+    let placeholder: String? = axStringAttribute(element, "AXPlaceholderValue")
+
+    let minValue: Double? = {
+        var raw: AnyObject?
+        let result = AXUIElementCopyAttributeValue(element, "AXMinValue" as CFString, &raw)
+        guard result == .success, let n = raw as? NSNumber else { return nil }
+        return n.doubleValue
+    }()
+    let maxValue: Double? = {
+        var raw: AnyObject?
+        let result = AXUIElementCopyAttributeValue(element, "AXMaxValue" as CFString, &raw)
+        guard result == .success, let n = raw as? NSNumber else { return nil }
+        return n.doubleValue
+    }()
+
+    let actions: [String]? = {
+        var actionNames: CFArray?
+        let result = AXUIElementCopyActionNames(element, &actionNames)
+        guard result == .success, let names = actionNames as? [String], !names.isEmpty else { return nil }
+        return names
+    }()
+
     let position = axPointAttribute(element)
     let size = axSizeAttribute(element)
 
@@ -113,6 +137,12 @@ public func buildTree(element: AXUIElement, depth: Int, maxDepth: Int, path: Str
         value: value,
         enabled: enabled,
         focused: focused,
+        selected: selected,
+        expanded: expanded,
+        placeholder: placeholder,
+        minValue: minValue,
+        maxValue: maxValue,
+        actions: actions,
         position: position,
         size: size,
         path: path,

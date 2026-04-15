@@ -1093,4 +1093,101 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(decoded.vms[1].base, "sequoia")
         XCTAssertNil(decoded.vms[2].ip)
     }
+
+    // MARK: - AXNode new attributes
+
+    func testAXNodeEncodingWithNewAttributes() {
+        let node = AXNode(
+            role: "AXSlider",
+            subrole: nil,
+            title: "Volume",
+            identifier: "volumeSlider",
+            label: nil,
+            value: "50",
+            enabled: true,
+            focused: false,
+            selected: true,
+            expanded: false,
+            placeholder: "Search...",
+            minValue: 0,
+            maxValue: 100,
+            actions: ["AXPress", "AXShowMenu"],
+            position: AXPoint(x: 10, y: 20),
+            size: AXSize(width: 200, height: 30),
+            path: "AXWindow[0]/AXSlider[0]",
+            children: nil
+        )
+        let data = try! jsonEncoder.encode(node)
+        let json = String(data: data, encoding: .utf8)!
+
+        XCTAssertTrue(json.contains("\"selected\" : true"))
+        XCTAssertTrue(json.contains("\"expanded\" : false"))
+        XCTAssertTrue(json.contains("\"placeholder\" : \"Search...\""))
+        XCTAssertTrue(json.contains("\"minValue\" : 0"))
+        XCTAssertTrue(json.contains("\"maxValue\" : 100"))
+        XCTAssertTrue(json.contains("\"actions\""))
+        XCTAssertTrue(json.contains("\"AXPress\""))
+        XCTAssertTrue(json.contains("\"AXShowMenu\""))
+    }
+
+    func testAXNodeCompactEncodingSkipsNilNewAttributes() {
+        let node = AXNode(
+            role: "AXButton",
+            subrole: nil,
+            title: "OK",
+            identifier: nil,
+            label: nil,
+            value: nil,
+            enabled: true,
+            focused: false,
+            position: nil,
+            size: nil,
+            path: "AXButton[0]",
+            children: nil
+        )
+        let compact = node.compacted()
+        let data = try! jsonEncoder.encode(compact)
+        let json = String(data: data, encoding: .utf8)!
+
+        XCTAssertFalse(json.contains("\"selected\""))
+        XCTAssertFalse(json.contains("\"expanded\""))
+        XCTAssertFalse(json.contains("\"placeholder\""))
+        XCTAssertFalse(json.contains("\"minValue\""))
+        XCTAssertFalse(json.contains("\"maxValue\""))
+        XCTAssertFalse(json.contains("\"actions\""))
+    }
+
+    func testAXNodeCompactEncodingIncludesNewAttributes() {
+        let node = AXNode(
+            role: "AXSlider",
+            subrole: nil,
+            title: "Volume",
+            identifier: nil,
+            label: nil,
+            value: "50",
+            enabled: true,
+            focused: false,
+            selected: true,
+            expanded: false,
+            placeholder: "Search...",
+            minValue: 0,
+            maxValue: 100,
+            actions: ["AXPress"],
+            position: nil,
+            size: nil,
+            path: "AXSlider[0]",
+            children: nil
+        )
+        let compact = node.compacted()
+        let data = try! jsonEncoder.encode(compact)
+        let json = String(data: data, encoding: .utf8)!
+
+        XCTAssertTrue(json.contains("\"selected\" : true"))
+        XCTAssertTrue(json.contains("\"expanded\" : false"))
+        XCTAssertTrue(json.contains("\"placeholder\" : \"Search...\""))
+        XCTAssertTrue(json.contains("\"minValue\" : 0"))
+        XCTAssertTrue(json.contains("\"maxValue\" : 100"))
+        XCTAssertTrue(json.contains("\"actions\""))
+        XCTAssertTrue(json.contains("\"AXPress\""))
+    }
 }

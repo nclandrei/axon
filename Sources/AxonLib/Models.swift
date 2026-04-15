@@ -25,12 +25,18 @@ public struct AXNode: Codable {
     public let value: String?
     public let enabled: Bool?
     public let focused: Bool?
+    public let selected: Bool?
+    public let expanded: Bool?
+    public let placeholder: String?
+    public let minValue: Double?
+    public let maxValue: Double?
+    public let actions: [String]?
     public let position: AXPoint?
     public let size: AXSize?
     public let path: String
     public let children: [AXNode]?
 
-    public init(role: String?, subrole: String?, title: String?, identifier: String?, label: String?, value: String?, enabled: Bool?, focused: Bool?, position: AXPoint?, size: AXSize?, path: String, children: [AXNode]?) {
+    public init(role: String?, subrole: String?, title: String?, identifier: String?, label: String?, value: String?, enabled: Bool?, focused: Bool?, selected: Bool? = nil, expanded: Bool? = nil, placeholder: String? = nil, minValue: Double? = nil, maxValue: Double? = nil, actions: [String]? = nil, position: AXPoint?, size: AXSize?, path: String, children: [AXNode]?) {
         self.role = role
         self.subrole = subrole
         self.title = title
@@ -39,6 +45,12 @@ public struct AXNode: Codable {
         self.value = value
         self.enabled = enabled
         self.focused = focused
+        self.selected = selected
+        self.expanded = expanded
+        self.placeholder = placeholder
+        self.minValue = minValue
+        self.maxValue = maxValue
+        self.actions = actions
         self.position = position
         self.size = size
         self.path = path
@@ -56,6 +68,12 @@ public struct AXNode: Codable {
             value: value,
             enabled: enabled,
             focused: focused,
+            selected: selected,
+            expanded: expanded,
+            placeholder: placeholder,
+            minValue: minValue,
+            maxValue: maxValue,
+            actions: actions,
             path: path,
             children: children?.map { $0.compacted() }
         )
@@ -71,10 +89,16 @@ public struct CompactAXNode: Codable {
     public let value: String?
     public let enabled: Bool?
     public let focused: Bool?
+    public let selected: Bool?
+    public let expanded: Bool?
+    public let placeholder: String?
+    public let minValue: Double?
+    public let maxValue: Double?
+    public let actions: [String]?
     public let path: String
     public let children: [CompactAXNode]?
 
-    public init(role: String?, subrole: String?, title: String?, identifier: String?, label: String?, value: String?, enabled: Bool?, focused: Bool?, path: String, children: [CompactAXNode]?) {
+    public init(role: String?, subrole: String?, title: String?, identifier: String?, label: String?, value: String?, enabled: Bool?, focused: Bool?, selected: Bool? = nil, expanded: Bool? = nil, placeholder: String? = nil, minValue: Double? = nil, maxValue: Double? = nil, actions: [String]? = nil, path: String, children: [CompactAXNode]?) {
         self.role = role
         self.subrole = subrole
         self.title = title
@@ -83,6 +107,12 @@ public struct CompactAXNode: Codable {
         self.value = value
         self.enabled = enabled
         self.focused = focused
+        self.selected = selected
+        self.expanded = expanded
+        self.placeholder = placeholder
+        self.minValue = minValue
+        self.maxValue = maxValue
+        self.actions = actions
         self.path = path
         self.children = children
     }
@@ -97,6 +127,12 @@ public struct CompactAXNode: Codable {
         if let value = value { try container.encode(value, forKey: .value) }
         if let enabled = enabled { try container.encode(enabled, forKey: .enabled) }
         if let focused = focused { try container.encode(focused, forKey: .focused) }
+        if let selected = selected { try container.encode(selected, forKey: .selected) }
+        if let expanded = expanded { try container.encode(expanded, forKey: .expanded) }
+        if let placeholder = placeholder { try container.encode(placeholder, forKey: .placeholder) }
+        if let minValue = minValue { try container.encode(minValue, forKey: .minValue) }
+        if let maxValue = maxValue { try container.encode(maxValue, forKey: .maxValue) }
+        if let actions = actions, !actions.isEmpty { try container.encode(actions, forKey: .actions) }
         try container.encode(path, forKey: .path)
         if let children = children, !children.isEmpty {
             try container.encode(children, forKey: .children)
@@ -104,7 +140,9 @@ public struct CompactAXNode: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case role, subrole, title, identifier, label, value, enabled, focused, path, children
+        case role, subrole, title, identifier, label, value, enabled, focused
+        case selected, expanded, placeholder, minValue, maxValue, actions
+        case path, children
     }
 }
 
