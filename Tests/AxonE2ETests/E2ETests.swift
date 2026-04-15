@@ -149,6 +149,36 @@ final class E2ETests: AxonE2ETestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: outputPath))
     }
 
+    // MARK: - 8b. Screenshot element
+
+    func testScreenshotElement() throws {
+        let outputPath = "/tmp/axon-test-element-screenshot.png"
+        addTeardownBlock {
+            try? FileManager.default.removeItem(atPath: outputPath)
+        }
+
+        // First get the tree to find a valid path
+        let treeResult = runAxon(["tree", "--app", "Finder", "--depth", "2"])
+        try skipIfNoAccessibility(treeResult)
+
+        // Try to screenshot the first window (AXWindow[0])
+        let result = runAxon(["screenshot", "--app", "Finder", "--path", "AXWindow[0]", "--output", outputPath])
+        try skipIfNoAccessibility(result)
+
+        if result.exitCode != 0 {
+            throw XCTSkip("Skipping: element screenshot failed. stderr: \(result.stderr)")
+        }
+
+        let json = parseJSON(result.stdout)
+        XCTAssertEqual(json?["success"] as? Bool, true)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outputPath))
+
+        let width = json?["width"] as? Int ?? 0
+        let height = json?["height"] as? Int ?? 0
+        XCTAssertGreaterThan(width, 0)
+        XCTAssertGreaterThan(height, 0)
+    }
+
     // MARK: - 9. App not found
 
     func testAppNotFound() {

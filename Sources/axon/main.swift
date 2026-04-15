@@ -29,6 +29,8 @@ Inspection:
   axon screenshot --app <app> [--output <path>]      Capture window as PNG
   axon screenshot --app <app> --full-screen          Capture entire screen
   axon screenshot --app <app> --window <title>       Capture specific window
+  axon screenshot --app <app> --identifier <id>       Capture specific element
+  axon screenshot --app <app> --label <text>          Capture specific element
 
 Interaction:
   axon click --app <app> <target> [--modifiers m]     Click a UI element
@@ -337,19 +339,25 @@ Output:
 """
 
 let helpScreenshot = """
-axon screenshot - Capture an app window or the full screen as PNG
+axon screenshot - Capture an app window, element, or the full screen as PNG
 
   --app <name>        App name or bundle ID (required)
   --output <path>     Output path (default: /tmp/axon-screenshot.png)
   --full-screen       Capture entire screen instead of app window
   --window <title>    Capture a specific window by title
+  --identifier <id>   Capture a specific element by identifier
+  --label <text>      Capture a specific element by label
+  --path <path>       Capture a specific element by tree path
 
 Activates app before capture. Captures at Retina resolution.
+Element screenshot captures the screen region matching the element's bounds.
 
   axon screenshot --app Finder
   axon screenshot --app Xcode --output ~/Desktop/xcode.png
   axon screenshot --app Xcode --window "MyProject"
   axon screenshot --app Finder --full-screen
+  axon screenshot --app MyApp --identifier dataTable --output /tmp/table.png
+  axon screenshot --app MyApp --path "AXWindow[0]/AXGroup[0]/AXButton[1]"
 
 Output:
   {"success": true, "path": "/tmp/axon-screenshot.png", "width": 2560, "height": 1440}
@@ -1021,12 +1029,35 @@ case "screenshot":
     let fullScreen = cli.flag("full-screen")
     let windowTitle = cli.option("window")
 
-    let (app, _) = resolveApp(name: appName)
+    // Check for element targeting
+    let elementId = cli.option("identifier")
+    let elementLabel = cli.option("label")
+    let elementPath = cli.option("path")
+    let hasElementTarget = elementId != nil || elementLabel != nil || elementPath != nil
+
+    let (app, axApp) = resolveApp(name: appName)
 
     activateApp(app)
     usleep(200_000) // 200ms for window to be fully visible
 
-    if let ssOutput = captureScreenshot(app: app, outputPath: outputPath, fullScreen: fullScreen, windowTitle: windowTitle) {
+    if hasElementTarget {
+        checkAccessibilityPermission()
+        let found = resolveElement(
+            appElement: axApp,
+            identifier: elementId,
+            label: elementLabel,
+            path: elementPath,
+            appName: appName
+        )
+        if let ssOutput = captureElementScreenshot(app: app, element: found.element, outputPath: outputPath) {
+            emit(ssOutput, plain: [
+                ("path", ssOutput.path),
+                ("size", "\(ssOutput.width)x\(ssOutput.height)"),
+            ])
+        } else {
+            exit(1)
+        }
+    } else if let ssOutput = captureScreenshot(app: app, outputPath: outputPath, fullScreen: fullScreen, windowTitle: windowTitle) {
         emit(ssOutput, plain: [
             ("path", ssOutput.path),
             ("size", "\(ssOutput.width)x\(ssOutput.height)"),

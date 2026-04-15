@@ -71,6 +71,36 @@ private func captureFullScreen(outputPath: String) -> ScreenshotOutput? {
     return saveImage(image, to: outputPath)
 }
 
+/// Capture a screenshot of a specific element by cropping from the screen capture
+public func captureElementScreenshot(app: NSRunningApplication, element: AXUIElement, outputPath: String) -> ScreenshotOutput? {
+    // Get element position and size in screen coordinates
+    guard let pos = axPointAttribute(element), let sz = axSizeAttribute(element) else {
+        printError(code: "screenshot_failed", message: "Could not determine element position/size")
+        return nil
+    }
+
+    // Element must have non-zero size
+    guard sz.width > 0 && sz.height > 0 else {
+        printError(code: "screenshot_failed", message: "Element has zero size")
+        return nil
+    }
+
+    let elementRect = CGRect(x: pos.x, y: pos.y, width: sz.width, height: sz.height)
+
+    // Capture the screen region containing the element
+    guard let image = CGWindowListCreateImage(
+        elementRect,
+        .optionOnScreenOnly,
+        kCGNullWindowID,
+        [.bestResolution, .boundsIgnoreFraming]
+    ) else {
+        printError(code: "screenshot_failed", message: "Failed to capture element region")
+        return nil
+    }
+
+    return saveImage(image, to: outputPath)
+}
+
 /// Save a CGImage as PNG to disk
 private func saveImage(_ image: CGImage, to path: String) -> ScreenshotOutput? {
     let url = URL(fileURLWithPath: path)

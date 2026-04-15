@@ -296,6 +296,14 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
     }
 
+    // MARK: - screenshot --help includes --identifier
+
+    func testScreenshotElementHelp() {
+        let result = runAxon(["screenshot", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("--identifier"))
+    }
+
     // MARK: - 16. activate missing --app
 
     func testActivateMissingApp_exits1() {
