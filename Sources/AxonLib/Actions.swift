@@ -104,16 +104,27 @@ public func closeWindow(axApp: AXUIElement, windowTitle: String?) -> Bool {
 
 // MARK: - Click
 
+public enum ClickMethod: String {
+    case axPress
+    case coordinateClick
+}
+
 public func performClick(element: AXUIElement, modifiers: CGEventFlags = []) -> Bool {
-    // If no modifiers, use the simple AXPress action (existing behavior)
+    return performClickWithMethod(element: element, modifiers: modifiers) != nil
+}
+
+public func performClickWithMethod(element: AXUIElement, modifiers: CGEventFlags = []) -> ClickMethod? {
+    // Try AXPress first when no modifiers
     if modifiers.isEmpty {
         let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
-        return result == .success
+        if result == .success {
+            return .axPress
+        }
     }
 
-    // With modifiers, use CGEvent click at element center
+    // Fall back to coordinate-based CGEvent click at element center
     guard let pos = axPointAttribute(element), let sz = axSizeAttribute(element) else {
-        return false
+        return nil
     }
     let x = pos.x + sz.width / 2
     let y = pos.y + sz.height / 2
@@ -121,7 +132,7 @@ public func performClick(element: AXUIElement, modifiers: CGEventFlags = []) -> 
 
     guard let mouseDown = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point, mouseButton: .left),
           let mouseUp = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: point, mouseButton: .left) else {
-        return false
+        return nil
     }
 
     mouseDown.flags = modifiers
@@ -129,7 +140,7 @@ public func performClick(element: AXUIElement, modifiers: CGEventFlags = []) -> 
     mouseDown.post(tap: .cghidEventTap)
     usleep(50_000)
     mouseUp.post(tap: .cghidEventTap)
-    return true
+    return .coordinateClick
 }
 
 // MARK: - Right-Click
