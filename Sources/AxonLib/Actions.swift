@@ -259,6 +259,73 @@ private func typeViaKeyboard(text: String) -> Bool {
     return true
 }
 
+// MARK: - Set Value
+
+/// Set the value of a UI element (slider, stepper, checkbox, etc.)
+public func performSetValue(element: AXUIElement, value: String) -> (success: Bool, previousValue: String?, newValue: String?) {
+    // Read current value for reporting
+    let previousValue: String? = {
+        var raw: AnyObject?
+        let result = AXUIElementCopyAttributeValue(element, kAXValueAttribute as String as CFString, &raw)
+        guard result == .success, let v = raw else { return nil }
+        if let s = v as? String { return s }
+        if let n = v as? NSNumber { return n.stringValue }
+        return nil
+    }()
+
+    // Try setting as number first (for sliders, steppers)
+    if let numValue = Double(value) {
+        let result = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, numValue as CFTypeRef)
+        if result == .success {
+            let newValue = readCurrentValue(element)
+            return (true, previousValue, newValue)
+        }
+
+        // Try as NSNumber
+        let nsNum = NSNumber(value: numValue)
+        let result2 = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, nsNum as CFTypeRef)
+        if result2 == .success {
+            let newValue = readCurrentValue(element)
+            return (true, previousValue, newValue)
+        }
+    }
+
+    // Try as boolean (for checkboxes: "true"/"false", "1"/"0")
+    if let boolValue = parseBoolValue(value) {
+        let result = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, (boolValue ? 1 : 0) as CFTypeRef)
+        if result == .success {
+            let newValue = readCurrentValue(element)
+            return (true, previousValue, newValue)
+        }
+    }
+
+    // Try as string (fallback)
+    let result = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, value as CFTypeRef)
+    if result == .success {
+        let newValue = readCurrentValue(element)
+        return (true, previousValue, newValue)
+    }
+
+    return (false, previousValue, nil)
+}
+
+private func readCurrentValue(_ element: AXUIElement) -> String? {
+    var raw: AnyObject?
+    let result = AXUIElementCopyAttributeValue(element, kAXValueAttribute as String as CFString, &raw)
+    guard result == .success, let v = raw else { return nil }
+    if let s = v as? String { return s }
+    if let n = v as? NSNumber { return n.stringValue }
+    return nil
+}
+
+private func parseBoolValue(_ value: String) -> Bool? {
+    switch value.lowercased() {
+    case "true", "1", "yes", "on": return true
+    case "false", "0", "no", "off": return false
+    default: return nil
+    }
+}
+
 // MARK: - Drag
 
 public func performDrag(fromElement: AXUIElement, toElement: AXUIElement, duration: Double = 0.5) -> Bool {

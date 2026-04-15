@@ -36,6 +36,7 @@ Interaction:
   axon double-click --app <app> <target> [--modifiers m] Double-click an element
   axon type --app <app> <target> --text <str>        Type text into a field
   axon type --app <app> <target> --text <s> --clear  Replace existing field text
+  axon set-value --app <app> <target> --value <val>  Set element value (slider, checkbox)
   axon scroll --app <app> <target> --direction <dir> Scroll within element
   axon key --app <app> --key <key> [--modifiers m]   Press a key with modifiers
   axon hover --app <app> <target>                    Move mouse to element
@@ -519,6 +520,29 @@ Output (set):
   {"success": true, "text": null}
 """
 
+let helpSetValue = """
+axon set-value - Set the value of a UI element
+
+  --app <name>        App name or bundle ID (required)
+  --identifier <id>   Match by accessibility identifier
+  --label <text>      Match by title or description
+  --path <path>       Match by tree path (from 'axon tree')
+  --value <val>       Value to set (required)
+
+Sets the AXValue attribute on the target element. Works for:
+  - Sliders: numeric value (e.g. --value 50)
+  - Steppers: numeric value
+  - Checkboxes: boolean (--value true, --value false, --value 1, --value 0)
+  - Text fields: string value (prefer 'axon type' for text input)
+
+  axon set-value --app MyApp --identifier volumeSlider --value 75
+  axon set-value --app MyApp --label "Enable notifications" --value true
+  axon set-value --app MyApp --path "AXWindow[0]/AXSlider[0]" --value 0.5
+
+Output:
+  {"success": true, "previousValue": "50", "newValue": "75"}
+"""
+
 let helpVMAcquire = """
 axon vm-acquire - Clone, boot, and register an ephemeral macOS VM via Tart
 
@@ -633,6 +657,7 @@ func showHelp(for command: String?) {
     case "focused":     text = helpFocused
     case "window-info": text = helpWindowInfo
     case "menu":        text = helpMenu
+    case "set-value":   text = helpSetValue
     case "move-resize": text = helpMoveResize
     case "clipboard":  text = helpClipboard
     case "wait-for-value": text = helpWaitForValue
@@ -1206,6 +1231,30 @@ case "clipboard":
         let success = setClipboard(text: text)
         printJSON(ClipboardOutput(success: success, text: nil))
         if !success { exit(1) }
+    }
+
+case "set-value":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let value = cli.requireOption("value")
+    let (app, axApp) = resolveApp(name: appName)
+
+    activateApp(app)
+
+    let found = resolveElement(
+        appElement: axApp,
+        identifier: cli.option("identifier"),
+        label: cli.option("label"),
+        path: cli.option("path"),
+        appName: appName
+    )
+
+    let result = performSetValue(element: found.element, value: value)
+    if result.success {
+        printJSON(SetValueOutput(success: true, previousValue: result.previousValue, newValue: result.newValue))
+    } else {
+        printError(code: "set_value_failed", message: "Failed to set value '\(value)' on element. The element may not support value setting.")
+        exit(1)
     }
 
 case "wait-for-value":

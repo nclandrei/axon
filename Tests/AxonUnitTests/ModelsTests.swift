@@ -1264,4 +1264,24 @@ final class ModelsTests: XCTestCase {
         XCTAssertTrue(json.contains("\"actions\""))
         XCTAssertTrue(json.contains("\"AXPress\""))
     }
+
+    // MARK: - SetValueOutput
+
+    func testSetValueOutputEncoding() {
+        let output = SetValueOutput(success: true, previousValue: "50", newValue: "75")
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"previousValue\" : \"50\""))
+        XCTAssertTrue(json.contains("\"newValue\" : \"75\""))
+    }
+
+    func testSetValueOutputEncodingNilValues() {
+        let output = SetValueOutput(success: false, previousValue: nil, newValue: nil)
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(SetValueOutput.self, from: data)
+        XCTAssertFalse(decoded.success)
+        XCTAssertNil(decoded.previousValue)
+        XCTAssertNil(decoded.newValue)
+    }
 }

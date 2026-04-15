@@ -576,6 +576,20 @@ public struct VMListOutput: Codable {
     }
 }
 
+// MARK: - SetValueOutput
+
+public struct SetValueOutput: Codable {
+    public let success: Bool
+    public let previousValue: String?
+    public let newValue: String?
+
+    public init(success: Bool, previousValue: String?, newValue: String?) {
+        self.success = success
+        self.previousValue = previousValue
+        self.newValue = newValue
+    }
+}
+
 // MARK: - Error Output
 
 public struct ErrorOutput: Codable {

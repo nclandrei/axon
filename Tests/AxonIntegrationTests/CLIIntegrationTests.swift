@@ -549,6 +549,36 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("--modifiers"), "right-click --help should mention --modifiers")
     }
 
+    // MARK: - set-value
+
+    func testSetValueHelp_exits0() {
+        let result = runAxon(["set-value", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon set-value"))
+    }
+
+    func testSetValueMissingApp_exits1() {
+        let result = runAxon(["set-value"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    func testSetValueMissingValue_exits1() {
+        let result = runAxon(["set-value", "--app", "Finder", "--identifier", "x"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    func testHelpSetValue_exits0() {
+        let result = runAxon(["help", "set-value"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon set-value"))
+    }
+
     // MARK: - help dispatches for new commands
 
     func testHelpMoveResize_exits0() {
@@ -561,6 +591,12 @@ final class CLIIntegrationTests: XCTestCase {
         let result = runAxon(["help", "clipboard"])
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.contains("axon clipboard"))
+    }
+
+    func testHelpSetValue_exits0() {
+        let result = runAxon(["help", "set-value"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon set-value"))
     }
 
     func testHelpWaitForValue_exits0() {
