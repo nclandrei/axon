@@ -737,7 +737,8 @@ if cli.hasHelp() {
 
 switch command {
 case "list":
-    let apps = listApps()
+    let includeAccessory = cli.flag("all")
+    let apps = listApps(includeAccessory: includeAccessory)
     let listOut = ListOutput(apps: apps)
     if format == .text {
         for app in apps {

@@ -2,28 +2,39 @@ import Cocoa
 
 // MARK: - App Discovery
 
-/// Find a running app by name or bundle ID
+/// Find a running app by name or bundle ID (searches both regular and accessory/menu-bar apps)
 public func findApp(name: String) -> NSRunningApplication? {
     let workspace = NSWorkspace.shared
-    let apps = workspace.runningApplications.filter { $0.activationPolicy == .regular }
+    // Search regular apps first, then accessory (menu bar) apps
+    let regularApps = workspace.runningApplications.filter { $0.activationPolicy == .regular }
+    let accessoryApps = workspace.runningApplications.filter { $0.activationPolicy == .accessory }
+    let allApps = regularApps + accessoryApps
 
     // Try exact name match first
-    if let app = apps.first(where: { $0.localizedName == name }) {
+    if let app = allApps.first(where: { $0.localizedName == name }) {
         return app
     }
 
     // Try bundle ID match
-    if let app = apps.first(where: { $0.bundleIdentifier == name }) {
+    if let app = allApps.first(where: { $0.bundleIdentifier == name }) {
         return app
     }
 
     // Try case-insensitive name match
-    if let app = apps.first(where: { $0.localizedName?.localizedCaseInsensitiveCompare(name) == .orderedSame }) {
+    if let app = allApps.first(where: { $0.localizedName?.localizedCaseInsensitiveCompare(name) == .orderedSame }) {
         return app
     }
 
     // Try case-insensitive contains match
-    if let app = apps.first(where: { $0.localizedName?.localizedCaseInsensitiveContains(name) == true }) {
+    if let app = allApps.first(where: { $0.localizedName?.localizedCaseInsensitiveContains(name) == true }) {
+        return app
+    }
+
+    // Try matching by executable name for apps without localizedName (common for SPM-built menu bar apps)
+    if let app = allApps.first(where: {
+        guard let url = $0.executableURL else { return false }
+        return url.lastPathComponent.localizedCaseInsensitiveCompare(name) == .orderedSame
+    }) {
         return app
     }
 
@@ -35,13 +46,18 @@ public func appElement(for app: NSRunningApplication) -> AXUIElement {
     AXUIElementCreateApplication(app.processIdentifier)
 }
 
-/// List all running GUI apps
-public func listApps() -> [AppInfo] {
+/// List all running GUI apps (optionally including accessory/menu-bar apps)
+public func listApps(includeAccessory: Bool = false) -> [AppInfo] {
     let workspace = NSWorkspace.shared
     return workspace.runningApplications
-        .filter { $0.activationPolicy == .regular }
+        .filter { app in
+            if app.activationPolicy == .regular { return true }
+            if includeAccessory && app.activationPolicy == .accessory { return true }
+            return false
+        }
         .compactMap { app in
-            guard let name = app.localizedName else { return nil }
+            let name = app.localizedName ?? app.executableURL?.lastPathComponent
+            guard let name = name else { return nil }
             return AppInfo(
                 name: name,
                 bundleID: app.bundleIdentifier,
@@ -54,7 +70,7 @@ public func listApps() -> [AppInfo] {
 /// Resolve app by name, printing error and exiting if not found
 public func resolveApp(name: String) -> (NSRunningApplication, AXUIElement) {
     guard let app = findApp(name: name) else {
-        let available = listApps().map { $0.name }
+        let available = listApps(includeAccessory: true).map { $0.name }
         printError(
             code: "app_not_found",
             message: "No running app matching '\(name)'",
