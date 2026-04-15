@@ -31,9 +31,9 @@ Inspection:
   axon screenshot --app <app> --window <title>       Capture specific window
 
 Interaction:
-  axon click --app <app> <target>                    Click a UI element
-  axon right-click --app <app> <target>              Right-click (context menu)
-  axon double-click --app <app> <target>             Double-click an element
+  axon click --app <app> <target> [--modifiers m]     Click a UI element
+  axon right-click --app <app> <target> [--modifiers m]  Right-click (context menu)
+  axon double-click --app <app> <target> [--modifiers m] Double-click an element
   axon type --app <app> <target> --text <str>        Type text into a field
   axon type --app <app> <target> --text <s> --clear  Replace existing field text
   axon scroll --app <app> <target> --direction <dir> Scroll within element
@@ -181,13 +181,15 @@ axon click - Click a UI element
   --identifier <id>   Match by accessibility identifier
   --label <text>      Match by title or description
   --path <path>       Match by tree path (from 'axon tree')
+  --modifiers <mods>  Modifier keys: cmd, shift, alt, ctrl, fn (joined with +)
 
-Activates app before clicking. Uses AXPress action.
+Activates app before clicking. Uses AXPress action (or CGEvent click when modifiers given).
 Matching: identifier > exact label > case-insensitive contains. Prefers enabled elements.
 
   axon click --app MyApp --identifier saveButton
   axon click --app MyApp --label "Save"
   axon click --app MyApp --path "AXWindow[0]/AXGroup[0]/AXButton[2]"
+  axon click --app Finder --label "file.txt" --modifiers shift
 
 Output:
   {"success": true, "element": {"role": "AXButton", "title": "Save", "identifier": "saveButton"}}
@@ -260,12 +262,14 @@ axon double-click - Double-click a UI element
   --identifier <id>   Match by accessibility identifier
   --label <text>      Match by title or description
   --path <path>       Match by tree path (from 'axon tree')
+  --modifiers <mods>  Modifier keys: cmd, shift, alt, ctrl, fn (joined with +)
 
 Activates app before clicking. Uses CGEvent double-click at element center.
 Useful for opening files, selecting words, or triggering double-click actions.
 
   axon double-click --app Finder --label "Documents"
   axon double-click --app TextEdit --path "AXWindow[0]/AXScrollArea[0]/AXTextArea[0]"
+  axon double-click --app Finder --label "file.txt" --modifiers shift
 
 Output:
   {"success": true, "element": {"role": "AXStaticText", "title": "Documents", "identifier": null}}
@@ -278,13 +282,15 @@ axon right-click - Right-click a UI element (context menu)
   --identifier <id>   Match by accessibility identifier
   --label <text>      Match by title or description
   --path <path>       Match by tree path (from 'axon tree')
+  --modifiers <mods>  Modifier keys: cmd, shift, alt, ctrl, fn (joined with +)
 
 Activates app before clicking. Tries AXShowMenu action first, falls back to
-CGEvent right-click at the element center.
+CGEvent right-click at the element center. With modifiers, uses CGEvent directly.
 
   axon right-click --app Finder --label "Documents"
   axon right-click --app MyApp --identifier fileItem
   axon right-click --app MyApp --path "AXWindow[0]/AXOutline[0]/AXRow[2]"
+  axon right-click --app Finder --label "file.txt" --modifiers shift
 
 Output:
   {"success": true, "element": {"role": "AXRow", "title": "Documents", "identifier": null}}
@@ -756,10 +762,15 @@ case "click":
         appName: appName
     )
 
-    if performClick(element: found.element) {
+    let modifierStr = cli.option("modifiers")
+    let flags = modifierStr.map { parseModifiers($0) } ?? CGEventFlags()
+    let modList: [String]? = modifierStr?.lowercased().split(separator: "+").map { String($0).trimmingCharacters(in: .whitespaces) }
+
+    if performClick(element: found.element, modifiers: flags) {
         let clickOut = ClickOutput(
             success: true,
-            element: ElementInfo(role: found.role, title: found.title, identifier: found.identifier)
+            element: ElementInfo(role: found.role, title: found.title, identifier: found.identifier),
+            modifiers: modList
         )
         emit(clickOut, plain: [
             ("clicked", [found.role, found.title, found.identifier].compactMap { $0 }.joined(separator: " ")),
@@ -784,10 +795,15 @@ case "double-click":
         appName: appName
     )
 
-    if performDoubleClick(element: found.element) {
+    let modifierStr = cli.option("modifiers")
+    let flags = modifierStr.map { parseModifiers($0) } ?? CGEventFlags()
+    let modList: [String]? = modifierStr?.lowercased().split(separator: "+").map { String($0).trimmingCharacters(in: .whitespaces) }
+
+    if performDoubleClick(element: found.element, modifiers: flags) {
         let dcOut = DoubleClickOutput(
             success: true,
-            element: ElementInfo(role: found.role, title: found.title, identifier: found.identifier)
+            element: ElementInfo(role: found.role, title: found.title, identifier: found.identifier),
+            modifiers: modList
         )
         emit(dcOut, plain: [
             ("double-clicked", [found.role, found.title, found.identifier].compactMap { $0 }.joined(separator: " ")),
@@ -812,10 +828,15 @@ case "right-click":
         appName: appName
     )
 
-    if performRightClick(element: found.element) {
+    let modifierStr = cli.option("modifiers")
+    let flags = modifierStr.map { parseModifiers($0) } ?? CGEventFlags()
+    let modList: [String]? = modifierStr?.lowercased().split(separator: "+").map { String($0).trimmingCharacters(in: .whitespaces) }
+
+    if performRightClick(element: found.element, modifiers: flags) {
         let rcOut = RightClickOutput(
             success: true,
-            element: ElementInfo(role: found.role, title: found.title, identifier: found.identifier)
+            element: ElementInfo(role: found.role, title: found.title, identifier: found.identifier),
+            modifiers: modList
         )
         emit(rcOut, plain: [
             ("right-clicked", [found.role, found.title, found.identifier].compactMap { $0 }.joined(separator: " ")),

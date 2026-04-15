@@ -529,6 +529,26 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertEqual(json?["error"] as? String, "missing_selector")
     }
 
+    // MARK: - click/double-click/right-click --modifiers in help
+
+    func testClickModifiersHelp() {
+        let result = runAxon(["click", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("--modifiers"), "click --help should mention --modifiers")
+    }
+
+    func testDoubleClickModifiersHelp() {
+        let result = runAxon(["double-click", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("--modifiers"), "double-click --help should mention --modifiers")
+    }
+
+    func testRightClickModifiersHelp() {
+        let result = runAxon(["right-click", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("--modifiers"), "right-click --help should mention --modifiers")
+    }
+
     // MARK: - help dispatches for new commands
 
     func testHelpMoveResize_exits0() {

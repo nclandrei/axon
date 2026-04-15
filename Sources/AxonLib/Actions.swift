@@ -104,21 +104,46 @@ public func closeWindow(axApp: AXUIElement, windowTitle: String?) -> Bool {
 
 // MARK: - Click
 
-public func performClick(element: AXUIElement) -> Bool {
-    let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
-    return result == .success
+public func performClick(element: AXUIElement, modifiers: CGEventFlags = []) -> Bool {
+    // If no modifiers, use the simple AXPress action (existing behavior)
+    if modifiers.isEmpty {
+        let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
+        return result == .success
+    }
+
+    // With modifiers, use CGEvent click at element center
+    guard let pos = axPointAttribute(element), let sz = axSizeAttribute(element) else {
+        return false
+    }
+    let x = pos.x + sz.width / 2
+    let y = pos.y + sz.height / 2
+    let point = CGPoint(x: x, y: y)
+
+    guard let mouseDown = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point, mouseButton: .left),
+          let mouseUp = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: point, mouseButton: .left) else {
+        return false
+    }
+
+    mouseDown.flags = modifiers
+    mouseUp.flags = modifiers
+    mouseDown.post(tap: .cghidEventTap)
+    usleep(50_000)
+    mouseUp.post(tap: .cghidEventTap)
+    return true
 }
 
 // MARK: - Right-Click
 
-public func performRightClick(element: AXUIElement) -> Bool {
-    // Try AXShowMenu first (works for most elements with context menus)
-    let showMenuResult = AXUIElementPerformAction(element, kAXShowMenuAction as CFString)
-    if showMenuResult == .success {
-        return true
+public func performRightClick(element: AXUIElement, modifiers: CGEventFlags = []) -> Bool {
+    // If no modifiers, try AXShowMenu first (works for most elements with context menus)
+    if modifiers.isEmpty {
+        let showMenuResult = AXUIElementPerformAction(element, kAXShowMenuAction as CFString)
+        if showMenuResult == .success {
+            return true
+        }
     }
 
-    // Fall back to CGEvent right-click at element center
+    // Fall back to (or directly use) CGEvent right-click at element center
     guard let pos = axPointAttribute(element), let sz = axSizeAttribute(element) else {
         return false
     }
@@ -132,6 +157,8 @@ public func performRightClick(element: AXUIElement) -> Bool {
         return false
     }
 
+    mouseDown.flags = modifiers
+    mouseUp.flags = modifiers
     mouseDown.post(tap: .cghidEventTap)
     usleep(50_000) // 50ms
     mouseUp.post(tap: .cghidEventTap)
@@ -141,7 +168,7 @@ public func performRightClick(element: AXUIElement) -> Bool {
 
 // MARK: - Double-Click
 
-public func performDoubleClick(element: AXUIElement) -> Bool {
+public func performDoubleClick(element: AXUIElement, modifiers: CGEventFlags = []) -> Bool {
     guard let pos = axPointAttribute(element), let sz = axSizeAttribute(element) else {
         return false
     }
@@ -162,6 +189,11 @@ public func performDoubleClick(element: AXUIElement) -> Bool {
     mouseUp1.setIntegerValueField(.mouseEventClickState, value: 1)
     mouseDown2.setIntegerValueField(.mouseEventClickState, value: 2)
     mouseUp2.setIntegerValueField(.mouseEventClickState, value: 2)
+
+    mouseDown1.flags = modifiers
+    mouseUp1.flags = modifiers
+    mouseDown2.flags = modifiers
+    mouseUp2.flags = modifiers
 
     mouseDown1.post(tap: .cghidEventTap)
     mouseUp1.post(tap: .cghidEventTap)

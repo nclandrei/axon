@@ -348,6 +348,80 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(decoded.element.identifier, "cell1")
     }
 
+    // MARK: - ClickOutput with modifiers
+
+    func testClickOutputWithModifiersEncoding() {
+        let output = ClickOutput(
+            success: true,
+            element: ElementInfo(role: "AXButton", title: "OK", identifier: "okBtn"),
+            modifiers: ["shift", "cmd"]
+        )
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"modifiers\""))
+        XCTAssertTrue(json.contains("shift"))
+        XCTAssertTrue(json.contains("cmd"))
+    }
+
+    func testClickOutputWithoutModifiersEncoding() {
+        let output = ClickOutput(
+            success: true,
+            element: ElementInfo(role: "AXButton", title: "OK", identifier: "okBtn")
+        )
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(ClickOutput.self, from: data)
+        XCTAssertNil(decoded.modifiers)
+    }
+
+    // MARK: - DoubleClickOutput with modifiers
+
+    func testDoubleClickOutputWithModifiersEncoding() {
+        let output = DoubleClickOutput(
+            success: true,
+            element: ElementInfo(role: "AXStaticText", title: "Documents", identifier: nil),
+            modifiers: ["alt"]
+        )
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"modifiers\""))
+        XCTAssertTrue(json.contains("alt"))
+    }
+
+    func testDoubleClickOutputWithoutModifiersEncoding() {
+        let output = DoubleClickOutput(
+            success: true,
+            element: ElementInfo(role: "AXStaticText", title: "Documents", identifier: nil)
+        )
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(DoubleClickOutput.self, from: data)
+        XCTAssertNil(decoded.modifiers)
+    }
+
+    // MARK: - RightClickOutput with modifiers
+
+    func testRightClickOutputWithModifiersEncoding() {
+        let output = RightClickOutput(
+            success: true,
+            element: ElementInfo(role: "AXRow", title: "Documents", identifier: nil),
+            modifiers: ["ctrl", "shift"]
+        )
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"modifiers\""))
+        XCTAssertTrue(json.contains("ctrl"))
+        XCTAssertTrue(json.contains("shift"))
+    }
+
+    func testRightClickOutputWithoutModifiersEncoding() {
+        let output = RightClickOutput(
+            success: true,
+            element: ElementInfo(role: "AXRow", title: "Documents", identifier: nil)
+        )
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(RightClickOutput.self, from: data)
+        XCTAssertNil(decoded.modifiers)
+    }
+
     // MARK: - TypeOutput
 
     func testTypeOutputEncoding() {

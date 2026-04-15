@@ -217,30 +217,36 @@ public struct CompactTreeOutput: Codable {
 public struct ClickOutput: Codable {
     public let success: Bool
     public let element: ElementInfo
+    public let modifiers: [String]?
 
-    public init(success: Bool, element: ElementInfo) {
+    public init(success: Bool, element: ElementInfo, modifiers: [String]? = nil) {
         self.success = success
         self.element = element
+        self.modifiers = modifiers
     }
 }
 
 public struct RightClickOutput: Codable {
     public let success: Bool
     public let element: ElementInfo
+    public let modifiers: [String]?
 
-    public init(success: Bool, element: ElementInfo) {
+    public init(success: Bool, element: ElementInfo, modifiers: [String]? = nil) {
         self.success = success
         self.element = element
+        self.modifiers = modifiers
     }
 }
 
 public struct DoubleClickOutput: Codable {
     public let success: Bool
     public let element: ElementInfo
+    public let modifiers: [String]?
 
-    public init(success: Bool, element: ElementInfo) {
+    public init(success: Bool, element: ElementInfo, modifiers: [String]? = nil) {
         self.success = success
         self.element = element
+        self.modifiers = modifiers
     }
 }
 
