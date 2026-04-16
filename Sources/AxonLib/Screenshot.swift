@@ -58,7 +58,7 @@ public func captureScreenshot(app: NSRunningApplication, outputPath: String, ful
 }
 
 /// Capture the full screen
-private func captureFullScreen(outputPath: String) -> ScreenshotOutput? {
+public func captureFullScreen(outputPath: String) -> ScreenshotOutput? {
     guard let image = CGWindowListCreateImage(
         CGRect.infinite,
         .optionOnScreenOnly,

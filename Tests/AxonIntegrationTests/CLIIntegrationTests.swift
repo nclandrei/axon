@@ -302,6 +302,15 @@ final class CLIIntegrationTests: XCTestCase {
     func testScreenshotMissingApp_exits1() {
         let result = runAxon(["screenshot"])
         XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("--app is required"))
+    }
+
+    // MARK: - screenshot --full-screen without --app succeeds
+
+    func testScreenshotFullScreenWithoutApp_exits0() {
+        let result = runAxon(["screenshot", "--full-screen", "--output", "/tmp/axon-test-fullscreen.png"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("path"))
     }
 
     // MARK: - screenshot --help includes --identifier

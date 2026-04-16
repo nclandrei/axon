@@ -27,7 +27,7 @@ Inspection:
   axon focused --app <app>                           Get focused element info
   axon window-info --app <app> [--window <title>]    Get window geometry
   axon screenshot --app <app> [--output <path>]      Capture window as PNG
-  axon screenshot --app <app> --full-screen          Capture entire screen
+  axon screenshot --full-screen [--output <path>]    Capture entire screen
   axon screenshot --app <app> --window <title>       Capture specific window
   axon screenshot --app <app> --identifier <id>       Capture specific element
   axon screenshot --app <app> --label <text>          Capture specific element
@@ -348,7 +348,7 @@ Output:
 let helpScreenshot = """
 axon screenshot - Capture an app window, element, or the full screen as PNG
 
-  --app <name>        App name or bundle ID (required)
+  --app <name>        App name or bundle ID (required unless --full-screen)
   --output <path>     Output path (default: /tmp/axon-screenshot.png)
   --full-screen       Capture entire screen instead of app window
   --window <title>    Capture a specific window by title
@@ -359,10 +359,11 @@ axon screenshot - Capture an app window, element, or the full screen as PNG
 Activates app before capture. Captures at Retina resolution.
 Element screenshot captures the screen region matching the element's bounds.
 
+  axon screenshot --full-screen                          # no --app needed
+  axon screenshot --full-screen --output ~/screen.png
   axon screenshot --app Finder
   axon screenshot --app Xcode --output ~/Desktop/xcode.png
   axon screenshot --app Xcode --window "MyProject"
-  axon screenshot --app Finder --full-screen
   axon screenshot --app MyApp --identifier dataTable --output /tmp/table.png
   axon screenshot --app MyApp --path "AXWindow[0]/AXGroup[0]/AXButton[1]"
 
@@ -1044,9 +1045,9 @@ case "scroll":
     emit(ScrollOutput(success: true), plain: [("scrolled", "\(direction.rawValue) \(amount)")])
 
 case "screenshot":
-    let appName = cli.requireOption("app")
     let outputPath = cli.option("output") ?? "/tmp/axon-screenshot.png"
     let fullScreen = cli.flag("full-screen")
+    let appName = cli.option("app")
     let windowTitle = cli.option("window")
 
     // Check for element targeting
@@ -1054,6 +1055,26 @@ case "screenshot":
     let elementLabel = cli.option("label")
     let elementPath = cli.option("path")
     let hasElementTarget = elementId != nil || elementLabel != nil || elementPath != nil
+
+    // Full-screen without --app: just capture and exit
+    if fullScreen && appName == nil {
+        usleep(200_000)
+        if let ssOutput = captureFullScreen(outputPath: outputPath) {
+            emit(ssOutput, plain: [
+                ("path", ssOutput.path),
+                ("size", "\(ssOutput.width)x\(ssOutput.height)"),
+            ])
+        } else {
+            exit(1)
+        }
+        break
+    }
+
+    // Everything else needs --app
+    guard let appName = appName else {
+        printError(code: "missing_option", message: "--app is required (unless using --full-screen)")
+        exit(1)
+    }
 
     let (app, axApp) = resolveApp(name: appName)
 
