@@ -155,6 +155,9 @@ axon launch - Launch an app by name, bundle ID, or path
 
 Provide exactly one of --name, --bundle-id, or --path.
 
+Supports regular apps and menu bar / accessory apps (LSUIElement).
+When --name lookup via Spotlight fails, falls back to /Applications/<Name>.app.
+
   axon launch --name TextEdit
   axon launch --bundle-id com.apple.Safari
   axon launch --path /Applications/Xcode.app

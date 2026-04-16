@@ -703,6 +703,32 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertNotNil(json?["vms"] as? [Any], "JSON should have 'vms' array")
     }
 
+    // MARK: - launch --help mentions accessory/menu bar apps
+
+    func testLaunchHelpMentionsAccessoryApps() {
+        let result = runAxon(["launch", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.stderr.contains("menu bar"),
+            "launch --help should mention menu bar / accessory app support"
+        )
+        XCTAssertTrue(
+            result.stderr.contains("LSUIElement"),
+            "launch --help should mention LSUIElement"
+        )
+    }
+
+    // MARK: - launch --help mentions /Applications fallback
+
+    func testLaunchHelpMentionsFallback() {
+        let result = runAxon(["launch", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.stderr.contains("/Applications"),
+            "launch --help should mention /Applications fallback"
+        )
+    }
+
     // MARK: - main --help mentions VM commands
 
     func testMainHelpMentionsVMCommands() {

@@ -57,6 +57,28 @@ public func launchApp(name: String?, bundleID: String?, path: String?, backgroun
             if let app = launched { return app }
             return waitForApp(bundleID: nil, name: name, timeout: timeout)
         }
+
+        // Fallback: try /Applications/<Name>.app directly (helps with menu bar apps
+        // that Spotlight/LaunchServices may not index)
+        let directPath = "/Applications/\(name).app"
+        if FileManager.default.fileExists(atPath: directPath) {
+            let url = URL(fileURLWithPath: directPath)
+            let sem = DispatchSemaphore(value: 0)
+            var launched: NSRunningApplication?
+            let config = NSWorkspace.OpenConfiguration()
+            if background { config.activates = false }
+            workspace.openApplication(at: url, configuration: config) { app, _ in
+                launched = app
+                sem.signal()
+            }
+            _ = sem.wait(timeout: .now() + timeout)
+            if let app = launched { return app }
+            let bundleForPath = Bundle(url: url)?.bundleIdentifier
+            if let bid = bundleForPath {
+                return waitForApp(bundleID: bid, name: name, timeout: timeout)
+            }
+            return waitForApp(bundleID: nil, name: name, timeout: timeout)
+        }
     }
 
     return nil
@@ -65,7 +87,7 @@ public func launchApp(name: String?, bundleID: String?, path: String?, backgroun
 private func waitForApp(bundleID: String?, name: String?, timeout: TimeInterval) -> NSRunningApplication? {
     let start = Date()
     while Date().timeIntervalSince(start) < timeout {
-        let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
+        let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular || $0.activationPolicy == .accessory }
         if let bid = bundleID, let app = apps.first(where: { $0.bundleIdentifier == bid }) {
             return app
         }
