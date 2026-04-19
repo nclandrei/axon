@@ -34,6 +34,23 @@ public func runDoctor(
         ))
     }
 
+    // Required: screen recording (needed for `axon screenshot`)
+    if screenCaptureGranted {
+        checks.append(DoctorCheck(
+            name: "screen_recording",
+            status: .ok,
+            message: "Screen recording permission granted",
+            fix_hint: nil
+        ))
+    } else {
+        checks.append(DoctorCheck(
+            name: "screen_recording",
+            status: .fail,
+            message: "Screen recording permission not granted",
+            fix_hint: "Open System Settings > Privacy & Security > Screen Recording and enable your terminal (or axon)."
+        ))
+    }
+
     let ready = checks.allSatisfy { $0.status != .fail }
     return DoctorOutput(ready: ready, checks: checks)
 }

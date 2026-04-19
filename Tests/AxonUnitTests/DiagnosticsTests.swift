@@ -34,4 +34,29 @@ final class DiagnosticsTests: XCTestCase {
         let output = runDoctor(axTrusted: true, screenCaptureGranted: true, isAppleSilicon: true, tartInstalled: true, binarySignatureInfo: nil)
         XCTAssertTrue(output.ready)
     }
+
+    // MARK: - Screen recording check
+
+    func testScreenRecordingCheckIncluded() {
+        let output = runDoctor(axTrusted: true, screenCaptureGranted: true, isAppleSilicon: true, tartInstalled: true, binarySignatureInfo: nil)
+        XCTAssertTrue(output.checks.contains { $0.name == "screen_recording" })
+    }
+
+    func testScreenRecordingCheckFailsWhenNotGranted() {
+        let output = runDoctor(axTrusted: true, screenCaptureGranted: false, isAppleSilicon: true, tartInstalled: true, binarySignatureInfo: nil)
+        let sr = output.checks.first(where: { $0.name == "screen_recording" })
+        XCTAssertEqual(sr?.status, .fail)
+        XCTAssertTrue(sr?.fix_hint?.contains("Screen") ?? false)
+    }
+
+    func testScreenRecordingCheckPassesWhenGranted() {
+        let output = runDoctor(axTrusted: true, screenCaptureGranted: true, isAppleSilicon: true, tartInstalled: true, binarySignatureInfo: nil)
+        let sr = output.checks.first(where: { $0.name == "screen_recording" })
+        XCTAssertEqual(sr?.status, .ok)
+    }
+
+    func testReadyFalseWhenScreenRecordingMissing() {
+        let output = runDoctor(axTrusted: true, screenCaptureGranted: false, isAppleSilicon: true, tartInstalled: true, binarySignatureInfo: nil)
+        XCTAssertFalse(output.ready)
+    }
 }
