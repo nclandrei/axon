@@ -2,11 +2,12 @@ import SwiftUI
 
 @main
 struct AxonSampleApp: App {
+    @StateObject private var store = NotesStore()
+
     var body: some Scene {
         WindowGroup("AxonSample") {
-            Text("AxonSample")
-                .frame(minWidth: 640, minHeight: 400)
-                .accessibilityIdentifier("mainPlaceholder")
+            ContentView()
+                .environmentObject(store)
         }
     }
 }
