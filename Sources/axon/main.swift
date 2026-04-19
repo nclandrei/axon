@@ -34,6 +34,7 @@ Inspection:
   axon screenshot --app <app> --window <title>       Capture specific window
   axon screenshot --app <app> --identifier <id>       Capture specific element
   axon screenshot --app <app> --label <text>          Capture specific element
+  axon exists --app <app> <target>                    Check existence (always exits 0)
 
 Assertions:
   axon assert --app <app> <target> [--exists|--not-exists|--value <s>|--value-matches <r>|--enabled|--disabled|--focused]
@@ -701,6 +702,21 @@ Examples:
   axon assert --app MyApp --sheet --label "Don't Save" --exists
 """
 
+let helpExists = """
+axon exists - check if an element exists without failing
+
+  axon exists --app <app> <target>
+
+Targeting: same as 'assert' (--identifier/--label/--path/--sheet/--alert).
+
+Always exits 0 on successful lookup. If the app is missing or the element
+is not found, returns {"exists": false, "count": 0}. Use 'axon assert
+--exists' if you want non-zero exit on absence.
+
+Output:
+  {"exists": true, "count": 1}
+"""
+
 let helpDoctor = """
 axon doctor - diagnose axon's environment
 
@@ -761,6 +777,7 @@ func showHelp(for command: String?) {
     case "vm-list":     text = helpVMList
     case "doctor":      text = helpDoctor
     case "assert":      text = helpAssert
+    case "exists":      text = helpExists
     default:            text = helpMain
     }
     FileHandle.standardError.write(text.data(using: .utf8)!)
@@ -1640,6 +1657,39 @@ case "assert":
         }
         exit(1)
     }
+
+case "exists":
+    // Unlike other commands, exists is designed to always exit 0 on any lookup result.
+    // It short-circuits the "app not found exits 1" behavior by catching that case explicitly.
+    guard AXIsProcessTrusted() else {
+        printError(code: "accessibility_not_trusted", message: "axon does not have accessibility permissions.")
+        exit(1)
+    }
+    let appName = cli.requireOption("app")
+    guard let appRunning = findApp(name: appName) else {
+        printJSON(ExistsOutput(success: true, exists: false, count: 0))
+        exit(0)
+    }
+    let axApp = appElement(for: appRunning)
+
+    let selector: ElementSelector?
+    if cli.flag("sheet") {
+        selector = .sheet(labelFilter: cli.option("label"))
+    } else if cli.flag("alert") {
+        selector = .alert(labelFilter: cli.option("label"))
+    } else if let id = cli.option("identifier") {
+        selector = .identifier(id)
+    } else if let lbl = cli.option("label") {
+        selector = .label(lbl)
+    } else if let p = cli.option("path") {
+        selector = .path(p)
+    } else {
+        printError(code: "missing_selector", message: "Provide --identifier, --label, --path, --sheet, or --alert")
+        exit(1)
+    }
+
+    let found = selector.flatMap { findElement(root: axApp, selector: $0) }
+    printJSON(ExistsOutput(success: true, exists: found != nil, count: found == nil ? 0 : 1))
 
 default:
     printError(code: "unknown_command", message: "Unknown command '\(command)'. Run 'axon --help' for usage.")

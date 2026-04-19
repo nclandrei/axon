@@ -828,4 +828,26 @@ final class CLIIntegrationTests: XCTestCase {
         let result = runAxon(["--help"])
         XCTAssertTrue(result.stderr.contains("assert"))
     }
+
+    // MARK: - exists
+
+    func testExistsHelp() {
+        let result = runAxon(["exists", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon exists"))
+    }
+
+    func testExistsAppNotFoundStillExitsZero() {
+        // exists is designed to not fail on lookup errors. App missing = {"exists": false, "count": 0}, exit 0.
+        let result = runAxon(["exists", "--app", "NonExistentApp_XYZ_999", "--identifier", "x"])
+        XCTAssertEqual(result.exitCode, 0)
+        let json = parseJSON(result.stdout)
+        XCTAssertEqual(json?["exists"] as? Bool, false)
+        XCTAssertEqual(json?["count"] as? Int, 0)
+    }
+
+    func testMainHelpListsExists() {
+        let result = runAxon(["--help"])
+        XCTAssertTrue(result.stderr.contains("exists"))
+    }
 }
