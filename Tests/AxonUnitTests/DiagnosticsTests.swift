@@ -59,4 +59,52 @@ final class DiagnosticsTests: XCTestCase {
         let output = runDoctor(axTrusted: true, screenCaptureGranted: false, isAppleSilicon: true, tartInstalled: true, binarySignatureInfo: nil)
         XCTAssertFalse(output.ready)
     }
+
+    // MARK: - Informational checks
+
+    func testArchitectureCheckIncluded() {
+        let output = runDoctor(axTrusted: true, screenCaptureGranted: true, isAppleSilicon: true, tartInstalled: true, binarySignatureInfo: nil)
+        let arch = output.checks.first(where: { $0.name == "architecture" })
+        XCTAssertNotNil(arch)
+        XCTAssertEqual(arch?.status, .ok)
+        XCTAssertTrue(arch?.message.contains("Apple Silicon") ?? false)
+    }
+
+    func testArchitectureCheckOnIntel() {
+        let output = runDoctor(axTrusted: true, screenCaptureGranted: true, isAppleSilicon: false, tartInstalled: true, binarySignatureInfo: nil)
+        let arch = output.checks.first(where: { $0.name == "architecture" })
+        XCTAssertEqual(arch?.status, .warn)
+        XCTAssertTrue(arch?.message.contains("Intel") ?? false)
+    }
+
+    func testTartCheckWhenPresent() {
+        let output = runDoctor(axTrusted: true, screenCaptureGranted: true, isAppleSilicon: true, tartInstalled: true, binarySignatureInfo: nil)
+        let tart = output.checks.first(where: { $0.name == "tart" })
+        XCTAssertEqual(tart?.status, .ok)
+    }
+
+    func testTartCheckWhenAbsent() {
+        let output = runDoctor(axTrusted: true, screenCaptureGranted: true, isAppleSilicon: true, tartInstalled: false, binarySignatureInfo: nil)
+        let tart = output.checks.first(where: { $0.name == "tart" })
+        XCTAssertEqual(tart?.status, .warn)
+        XCTAssertTrue(tart?.fix_hint?.contains("tart") ?? false)
+    }
+
+    func testBinarySignatureCheckWhenPresent() {
+        let output = runDoctor(axTrusted: true, screenCaptureGranted: true, isAppleSilicon: true, tartInstalled: true, binarySignatureInfo: "Authority=Developer ID Application: X")
+        let sig = output.checks.first(where: { $0.name == "binary_signature" })
+        XCTAssertEqual(sig?.status, .ok)
+        XCTAssertTrue(sig?.message.contains("Developer ID") ?? false)
+    }
+
+    func testBinarySignatureCheckWhenAbsent() {
+        let output = runDoctor(axTrusted: true, screenCaptureGranted: true, isAppleSilicon: true, tartInstalled: true, binarySignatureInfo: nil)
+        let sig = output.checks.first(where: { $0.name == "binary_signature" })
+        XCTAssertEqual(sig?.status, .warn)
+    }
+
+    func testInformationalWarnDoesNotAffectReady() {
+        let output = runDoctor(axTrusted: true, screenCaptureGranted: true, isAppleSilicon: false, tartInstalled: false, binarySignatureInfo: nil)
+        XCTAssertTrue(output.ready, "ready should be true when only informational checks warn")
+    }
 }

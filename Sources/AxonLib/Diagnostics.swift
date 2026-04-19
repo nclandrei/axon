@@ -51,6 +51,58 @@ public func runDoctor(
         ))
     }
 
-    let ready = checks.allSatisfy { $0.status != .fail }
+    // Informational: architecture
+    if isAppleSilicon {
+        checks.append(DoctorCheck(
+            name: "architecture",
+            status: .ok,
+            message: "Apple Silicon (arm64)",
+            fix_hint: nil
+        ))
+    } else {
+        checks.append(DoctorCheck(
+            name: "architecture",
+            status: .warn,
+            message: "Intel (x86_64). Tart VMs require Apple Silicon.",
+            fix_hint: nil
+        ))
+    }
+
+    // Informational: Tart presence (required only for vm-* commands)
+    if tartInstalled {
+        checks.append(DoctorCheck(
+            name: "tart",
+            status: .ok,
+            message: "Tart CLI found",
+            fix_hint: nil
+        ))
+    } else {
+        checks.append(DoctorCheck(
+            name: "tart",
+            status: .warn,
+            message: "Tart not installed (only needed for vm-* commands)",
+            fix_hint: "brew install cirruslabs/cli/tart"
+        ))
+    }
+
+    // Informational: binary signature
+    if let info = binarySignatureInfo, info.contains("Developer ID") {
+        checks.append(DoctorCheck(
+            name: "binary_signature",
+            status: .ok,
+            message: "axon binary signed with Developer ID (\(info))",
+            fix_hint: nil
+        ))
+    } else {
+        checks.append(DoctorCheck(
+            name: "binary_signature",
+            status: .warn,
+            message: "axon binary is unsigned or signature unreadable",
+            fix_hint: nil
+        ))
+    }
+
+    // Ready = no required checks failed. "warn" is informational and never affects ready.
+    let ready = !checks.contains(where: { $0.status == .fail })
     return DoctorOutput(ready: ready, checks: checks)
 }
