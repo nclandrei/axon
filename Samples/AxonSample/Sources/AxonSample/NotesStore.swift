@@ -42,14 +42,13 @@ final class NotesStore: ObservableObject {
     @Published var showUnsavedSheet: Bool = false
 
     /// Called when the user attempts to close a dirty note. Returns true if the
-    /// action should proceed immediately; false if the sheet will intercept.
+    /// caller can proceed (clean note — no interception); false if the sheet will
+    /// intercept and the caller should abort.
     func attemptClose() -> Bool {
         if let note = selectedNote, note.isDirty {
             showUnsavedSheet = true
             return false
         }
-        // Clean: proceed as a regular delete.
-        deleteSelected()
         return true
     }
 
