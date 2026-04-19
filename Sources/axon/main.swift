@@ -1615,10 +1615,8 @@ case "doctor":
 case "assert":
     checkAccessibilityPermission()
     let appName = cli.requireOption("app")
-    let (app, axApp) = resolveApp(name: appName)
 
-    if !noActivate { activateApp(app) }
-
+    // Build the spec first so we can decide how to handle a missing app.
     var spec = AssertionSpec()
     spec.exists = cli.flag("exists")
     spec.notExists = cli.flag("not-exists")
@@ -1634,6 +1632,26 @@ case "assert":
         printError(code: "missing_option", message: "Provide at least one assertion: --exists, --not-exists, --value, --value-matches, --enabled, --disabled, --focused")
         exit(1)
     }
+
+    let requiresElement = spec.exists || spec.value != nil || spec.valueMatches != nil ||
+                          spec.enabled || spec.disabled || spec.focused
+
+    // Find the app; don't exit on missing.
+    guard let appRunning = findApp(name: appName) else {
+        // App not found. If only --not-exists was asked, the assertion passes.
+        if !requiresElement && spec.notExists {
+            let info = ElementInfo(role: nil, title: nil, identifier: nil)
+            printJSON(AssertOutput(success: true, passed: true, element: info, failures: []))
+            exit(0)
+        }
+        // Otherwise, this is an element-lookup error — exit 2.
+        printError(code: "app_not_found", message: "No running app matching '\(appName)'")
+        exit(2)
+    }
+    let app = appRunning
+    let axApp = appElement(for: appRunning)
+
+    if !noActivate { activateApp(app) }
 
     // Try to find the element; allow missing if user is asserting --not-exists only.
     let selector: ElementSelector?
@@ -1654,8 +1672,6 @@ case "assert":
     let foundOpt: FoundElement? = selector.flatMap { findElement(root: axApp, selector: $0) }
 
     // If caller asked for anything beyond --not-exists and the element isn't there, exit 2.
-    let requiresElement = spec.exists || spec.value != nil || spec.valueMatches != nil ||
-                          spec.enabled || spec.disabled || spec.focused
     if requiresElement && foundOpt == nil {
         let available = collectAvailableIdentifiers(root: axApp)
         printError(code: "element_not_found", message: "No element found for assertion in \(appName)", available: available)

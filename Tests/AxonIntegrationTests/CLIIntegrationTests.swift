@@ -816,12 +816,14 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("--exists"))
     }
 
-    func testAssertAppNotFoundExitsOne() {
-        // App-not-found flows through the shared resolveApp path and exits 1.
-        // (Exit code 2 is reserved for element-lookup errors in a present app; that path
-        // would require a live app + missing element, exercised only in the M2 E2E suite.)
+    func testAssertAppNotFoundExitsTwoWhenElementRequired() {
         let result = runAxon(["assert", "--app", "NonExistentApp_XYZ_999", "--identifier", "x", "--exists"])
-        XCTAssertEqual(result.exitCode, 1, "assert should exit 1 when the app itself isn't running")
+        XCTAssertEqual(result.exitCode, 2, "assert should exit 2 when the app is missing and the assertion requires the element")
+    }
+
+    func testAssertNotExistsPassesOnMissingApp() {
+        let result = runAxon(["assert", "--app", "NonExistentApp_XYZ_999", "--identifier", "x", "--not-exists"])
+        XCTAssertEqual(result.exitCode, 0, "assert --not-exists should pass (exit 0) when the app is missing")
     }
 
     func testMainHelpListsAssert() {
