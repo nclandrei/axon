@@ -41,4 +41,48 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         XCTAssertEqual(row.exitCode, 0)
         XCTAssertEqual(parseJSON(row.stdout)?["exists"] as? Bool, true)
     }
+
+    // MARK: - 3. Editor reflects typed content
+
+    func testTypingUpdatesNoteTitleAndBody() throws {
+        try skipIfSampleNotBuilt()
+        try launchSample()
+
+        // Create a note
+        _ = runAxon(["click", "--app", "AxonSample", "--identifier", "newNoteButton"])
+
+        // Type into the title
+        let titleType = runAxon([
+            "type", "--app", "AxonSample",
+            "--identifier", "noteTitleField",
+            "--text", "Groceries",
+            "--clear"
+        ])
+        XCTAssertEqual(titleType.exitCode, 0, titleType.stderr)
+
+        // Type into the body
+        let bodyType = runAxon([
+            "type", "--app", "AxonSample",
+            "--identifier", "noteBodyField",
+            "--text", "Milk, eggs, bread",
+            "--clear"
+        ])
+        XCTAssertEqual(bodyType.exitCode, 0, bodyType.stderr)
+
+        // Assert title value using axon assert --value
+        let titleAssert = runAxon([
+            "assert", "--app", "AxonSample",
+            "--identifier", "noteTitleField",
+            "--value", "Groceries"
+        ])
+        XCTAssertEqual(titleAssert.exitCode, 0, "title assert failed: \(titleAssert.stderr)")
+
+        // Assert body via --value-matches
+        let bodyAssert = runAxon([
+            "assert", "--app", "AxonSample",
+            "--identifier", "noteBodyField",
+            "--value-matches", "^Milk.*bread$"
+        ])
+        XCTAssertEqual(bodyAssert.exitCode, 0, "body assert failed: \(bodyAssert.stderr)")
+    }
 }

@@ -25,7 +25,7 @@ struct ContentView: View {
             }
         } detail: {
             if let note = store.selectedNote {
-                Text("Editor for \(note.title)") // replaced in Task 4
+                Editor(note: note)
             } else {
                 Text("No note selected")
                     .accessibilityIdentifier("noSelectionPlaceholder")
