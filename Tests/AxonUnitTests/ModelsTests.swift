@@ -1356,4 +1356,48 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(DoctorStatus.warn.rawValue, "warn")
         XCTAssertEqual(DoctorStatus.fail.rawValue, "fail")
     }
+
+    // MARK: - AssertOutput / ExistsOutput
+
+    func testAssertOutputPassEncoding() throws {
+        let out = AssertOutput(success: true, passed: true, element: ElementInfo(role: "AXButton", title: "OK", identifier: "okBtn"), failures: [])
+        let data = try jsonEncoder.encode(out)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertEqual(json["passed"] as? Bool, true)
+        // failures array omitted when empty
+        XCTAssertNil(json["failures"])
+    }
+
+    func testAssertOutputFailEncodingShowsFailures() throws {
+        let out = AssertOutput(
+            success: false,
+            passed: false,
+            element: ElementInfo(role: "AXButton", title: nil, identifier: "okBtn"),
+            failures: [AssertFailure(assertion: "enabled", expected: "true", actual: "false")]
+        )
+        let data = try jsonEncoder.encode(out)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertEqual(json["passed"] as? Bool, false)
+        let fails = json["failures"] as! [[String: Any]]
+        XCTAssertEqual(fails.count, 1)
+        XCTAssertEqual(fails[0]["assertion"] as? String, "enabled")
+        XCTAssertEqual(fails[0]["expected"] as? String, "true")
+        XCTAssertEqual(fails[0]["actual"] as? String, "false")
+    }
+
+    func testExistsOutputEncoding() throws {
+        let out = ExistsOutput(success: true, exists: true, count: 1)
+        let data = try jsonEncoder.encode(out)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertEqual(json["exists"] as? Bool, true)
+        XCTAssertEqual(json["count"] as? Int, 1)
+    }
+
+    func testWaitReadyOutputEncoding() throws {
+        let out = WaitReadyOutput(success: true, elapsed_ms: 340)
+        let data = try jsonEncoder.encode(out)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertEqual(json["success"] as? Bool, true)
+        XCTAssertEqual(json["elapsed_ms"] as? Int, 340)
+    }
 }

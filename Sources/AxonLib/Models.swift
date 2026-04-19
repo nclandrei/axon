@@ -636,6 +636,68 @@ public struct DoctorOutput: Codable {
     }
 }
 
+// MARK: - Assert / Exists / WaitReady Output
+
+public struct AssertFailure: Codable {
+    public let assertion: String
+    public let expected: String
+    public let actual: String
+
+    public init(assertion: String, expected: String, actual: String) {
+        self.assertion = assertion
+        self.expected = expected
+        self.actual = actual
+    }
+}
+
+public struct AssertOutput: Codable {
+    public let success: Bool
+    public let passed: Bool
+    public let element: ElementInfo
+    public let failures: [AssertFailure]
+
+    public init(success: Bool, passed: Bool, element: ElementInfo, failures: [AssertFailure]) {
+        self.success = success
+        self.passed = passed
+        self.element = element
+        self.failures = failures
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(success, forKey: .success)
+        try c.encode(passed, forKey: .passed)
+        try c.encode(element, forKey: .element)
+        if !failures.isEmpty { try c.encode(failures, forKey: .failures) }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case success, passed, element, failures
+    }
+}
+
+public struct ExistsOutput: Codable {
+    public let success: Bool
+    public let exists: Bool
+    public let count: Int
+
+    public init(success: Bool, exists: Bool, count: Int) {
+        self.success = success
+        self.exists = exists
+        self.count = count
+    }
+}
+
+public struct WaitReadyOutput: Codable {
+    public let success: Bool
+    public let elapsed_ms: Int
+
+    public init(success: Bool, elapsed_ms: Int) {
+        self.success = success
+        self.elapsed_ms = elapsed_ms
+    }
+}
+
 // MARK: - Error Output
 
 public struct ErrorOutput: Codable {
