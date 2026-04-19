@@ -32,4 +32,10 @@ final class NotesStore: ObservableObject {
     func save() {
         selectedNote?.isDirty = false
     }
+
+    func deleteSelected() {
+        guard let id = selectedID, let idx = notes.firstIndex(where: { $0.id == id }) else { return }
+        notes.remove(at: idx)
+        selectedID = notes.first?.id
+    }
 }

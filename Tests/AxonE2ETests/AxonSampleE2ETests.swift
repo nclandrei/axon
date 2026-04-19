@@ -146,4 +146,28 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         ])
         XCTAssertEqual(clean.exitCode, 0, "clean assert failed: \(clean.stderr)")
     }
+
+    // MARK: - 6. Delete removes the selected note
+
+    func testDeleteRemovesSelectedNote() throws {
+        try skipIfSampleNotBuilt()
+        try launchSample()
+
+        _ = runAxon(["menu", "--app", "AxonSample", "--path", "File > New"])
+        _ = runAxon([
+            "type", "--app", "AxonSample",
+            "--identifier", "noteTitleField",
+            "--text", "Ephemeral",
+            "--clear"
+        ])
+
+        let existsBefore = runAxon(["exists", "--app", "AxonSample", "--label", "Ephemeral"])
+        XCTAssertEqual(parseJSON(existsBefore.stdout)?["exists"] as? Bool, true)
+
+        let delete = runAxon(["menu", "--app", "AxonSample", "--path", "File > Delete"])
+        XCTAssertEqual(delete.exitCode, 0, "delete failed: \(delete.stderr)")
+
+        let existsAfter = runAxon(["exists", "--app", "AxonSample", "--label", "Ephemeral"])
+        XCTAssertEqual(parseJSON(existsAfter.stdout)?["exists"] as? Bool, false)
+    }
 }
