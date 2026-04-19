@@ -756,4 +756,28 @@ final class CLIIntegrationTests: XCTestCase {
             "Main help should advertise vm-list"
         )
     }
+
+    // MARK: - doctor
+
+    func testDoctorEmitsJSONWithChecks() {
+        let result = runAxon(["doctor"])
+        // Exit code depends on runtime AX state; accept 0 or 1
+        XCTAssertTrue(result.exitCode == 0 || result.exitCode == 1, "doctor should exit 0 or 1, got \(result.exitCode)")
+        let json = parseJSON(result.stdout)
+        XCTAssertNotNil(json, "doctor stdout should be valid JSON")
+        XCTAssertNotNil(json?["checks"])
+        XCTAssertNotNil(json?["ready"])
+    }
+
+    func testDoctorHelp() {
+        let result = runAxon(["doctor", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon doctor"))
+    }
+
+    func testMainHelpListsDoctor() {
+        let result = runAxon(["--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("doctor"), "main --help should list doctor")
+    }
 }

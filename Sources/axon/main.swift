@@ -15,6 +15,9 @@ Wraps Apple's AXUIElement API so AI agents can drive macOS apps over SSH.
 All commands output JSON to stdout. Errors go to stderr with non-zero exit.
 Use --format text for human-readable output instead of JSON.
 
+Diagnostics:
+  axon doctor                                        Check AX + screen recording permissions, etc.
+
 App discovery:
   axon list                                          List running GUI apps
   axon launch --name <name>                          Launch by app name
@@ -658,6 +661,33 @@ On timeout:
   {"error": "timeout", "message": "Value did not change within 10s"}
 """
 
+let helpDoctor = """
+axon doctor - diagnose axon's environment
+
+  axon doctor                  Run all checks, emit JSON
+  axon doctor --format text    Human-readable checklist
+
+Checks performed:
+  accessibility     — AXIsProcessTrusted (required)
+  screen_recording  — CGPreflightScreenCaptureAccess (required)
+  architecture      — Apple Silicon vs Intel (informational)
+  tart              — Tart CLI on PATH (informational, for vm-*)
+  binary_signature  — Developer ID signature on the running binary (informational)
+
+Exit codes:
+  0  all required checks pass
+  1  at least one required check failed
+
+Output:
+  {
+    "ready": true,
+    "checks": [
+      {"name": "accessibility", "status": "ok", "message": "…"},
+      …
+    ]
+  }
+"""
+
 // MARK: - Help Dispatch
 
 func showHelp(for command: String?) {
@@ -689,6 +719,7 @@ func showHelp(for command: String?) {
     case "vm-acquire":  text = helpVMAcquire
     case "vm-release":  text = helpVMRelease
     case "vm-list":     text = helpVMList
+    case "doctor":      text = helpDoctor
     default:            text = helpMain
     }
     FileHandle.standardError.write(text.data(using: .utf8)!)
@@ -1462,6 +1493,27 @@ case "vm-list":
     } else {
         printJSON(out)
     }
+
+case "doctor":
+    let output = runDoctorLive()
+    if format == .text {
+        for check in output.checks {
+            let marker: String
+            switch check.status {
+            case .ok: marker = "[ok]"
+            case .warn: marker = "[warn]"
+            case .fail: marker = "[fail]"
+            }
+            print("\(marker) \(check.name): \(check.message)")
+            if let hint = check.fix_hint {
+                print("       → \(hint)")
+            }
+        }
+        print(output.ready ? "ready: true" : "ready: false")
+    } else {
+        printJSON(output)
+    }
+    if !output.ready { exit(1) }
 
 default:
     printError(code: "unknown_command", message: "Unknown command '\(command)'. Run 'axon --help' for usage.")
