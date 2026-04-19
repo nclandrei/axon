@@ -850,4 +850,22 @@ final class CLIIntegrationTests: XCTestCase {
         let result = runAxon(["--help"])
         XCTAssertTrue(result.stderr.contains("exists"))
     }
+
+    // MARK: - wait-ready
+
+    func testWaitReadyHelp() {
+        let result = runAxon(["wait-ready", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon wait-ready"))
+    }
+
+    func testWaitReadyAppNotFoundExitsOne() {
+        let result = runAxon(["wait-ready", "--app", "NonExistentApp_XYZ_999", "--timeout", "1"])
+        XCTAssertEqual(result.exitCode, 1)
+    }
+
+    func testMainHelpListsWaitReady() {
+        let result = runAxon(["--help"])
+        XCTAssertTrue(result.stderr.contains("wait-ready"))
+    }
 }

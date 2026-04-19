@@ -78,6 +78,7 @@ Waiting:
   axon wait --app <app> <target> --appear            Wait for element to exist
   axon wait --app <app> <target> --disappear         Wait for element to vanish
   axon wait-for-value --app <app> <target> [--pattern <regex>]  Wait for value to change/match
+  axon wait-ready --app <app> [--timeout <s>]        Wait until app's UI is ready
   Add --timeout <seconds> to either (default: 10). Polls every 200ms.
 
 Element targeting (<target> in click, type, scroll, wait):
@@ -644,6 +645,25 @@ Output:
   ]}
 """
 
+let helpWaitReady = """
+axon wait-ready - wait until an app's UI is ready to be driven
+
+  axon wait-ready --app <app> [--timeout <seconds>]
+
+Polls every 200ms until the app's AX tree has at least one window with
+at least one child and responds to attribute queries within 500ms.
+
+Defaults: --timeout 10.
+
+Use after 'axon launch' to replace sleep-based warmups.
+
+Output:
+  {"success": true, "elapsed_ms": 420}
+
+On timeout:
+  {"error": "timeout", "message": "App did not become ready within 10s"}
+"""
+
 let helpWaitForValue = """
 axon wait-for-value - Wait until an element's value changes or matches a pattern
 
@@ -771,6 +791,7 @@ func showHelp(for command: String?) {
     case "set-value":   text = helpSetValue
     case "move-resize": text = helpMoveResize
     case "clipboard":  text = helpClipboard
+    case "wait-ready":     text = helpWaitReady
     case "wait-for-value": text = helpWaitForValue
     case "vm-acquire":  text = helpVMAcquire
     case "vm-release":  text = helpVMRelease
@@ -1690,6 +1711,19 @@ case "exists":
 
     let found = selector.flatMap { findElement(root: axApp, selector: $0) }
     printJSON(ExistsOutput(success: true, exists: found != nil, count: found == nil ? 0 : 1))
+
+case "wait-ready":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let timeout = TimeInterval(cli.intOption("timeout", default: 10))
+    let (_, axApp) = resolveApp(name: appName)
+
+    if let elapsed = performWaitReady(appElement: axApp, timeout: timeout) {
+        emit(WaitReadyOutput(success: true, elapsed_ms: elapsed), plain: [("ready", "\(elapsed)ms")])
+    } else {
+        printError(code: "timeout", message: "App '\(appName)' did not become ready within \(Int(timeout))s")
+        exit(1)
+    }
 
 default:
     printError(code: "unknown_command", message: "Unknown command '\(command)'. Run 'axon --help' for usage.")
