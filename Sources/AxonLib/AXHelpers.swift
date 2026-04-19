@@ -156,6 +156,10 @@ public enum ElementSelector {
     case identifier(String)
     case label(String)
     case path(String)
+    /// Frontmost AXSheet attached to the app's active window. Optional label filter picks a descendant by title/description.
+    case sheet(labelFilter: String?)
+    /// Frontmost AXSheet whose role description is "alert" or subrole is AXSystemDialog. Optional label filter as above.
+    case alert(labelFilter: String?)
 }
 
 public struct FoundElement {
@@ -178,29 +182,28 @@ public func findElement(root: AXUIElement, selector: ElementSelector) -> FoundEl
     case .path(let path):
         return findByPath(root: root, path: path)
     case .identifier(let id):
-        // Try exact identifier match first
         if let found = findByAttribute(root: root, attribute: kAXIdentifierAttribute as String, value: id, exact: true) {
             return found
         }
         return nil
     case .label(let text):
-        // Try exact title match
         if let found = findByAttribute(root: root, attribute: kAXTitleAttribute as String, value: text, exact: true) {
             return found
         }
-        // Try exact description match
         if let found = findByAttribute(root: root, attribute: kAXDescriptionAttribute as String, value: text, exact: true) {
             return found
         }
-        // Try case-insensitive contains on title
         if let found = findByAttribute(root: root, attribute: kAXTitleAttribute as String, value: text, exact: false) {
             return found
         }
-        // Try case-insensitive contains on description
         if let found = findByAttribute(root: root, attribute: kAXDescriptionAttribute as String, value: text, exact: false) {
             return found
         }
         return nil
+    case .sheet(let labelFilter):
+        return findFrontmostSheet(appElement: root, alertOnly: false, labelFilter: labelFilter)
+    case .alert(let labelFilter):
+        return findFrontmostSheet(appElement: root, alertOnly: true, labelFilter: labelFilter)
     }
 }
 
@@ -304,6 +307,58 @@ private func collectMatches(element: AXUIElement, attribute: String, value: Stri
     for child in axChildren(element) {
         collectMatches(element: child, attribute: attribute, value: value, exact: exact, depth: depth + 1, maxDepth: maxDepth, matches: &matches)
     }
+}
+
+/// Find the frontmost AXSheet attached to the app's active window.
+/// If `alertOnly` is true, only returns sheets whose role description is
+/// "alert" or whose subrole is "AXSystemDialog". If `labelFilter` is non-nil,
+/// searches inside the sheet for a descendant matching that label.
+private func findFrontmostSheet(appElement: AXUIElement, alertOnly: Bool, labelFilter: String?) -> FoundElement? {
+    // Find the focused/active window on the app.
+    var focusedWindow: AXUIElement? = nil
+    var raw: AnyObject?
+    if AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &raw) == .success,
+       let w = raw {
+        focusedWindow = (w as! AXUIElement)
+    }
+    // Fall back: first window.
+    if focusedWindow == nil {
+        let windows: [AXUIElement] = axAttribute(appElement, kAXWindowsAttribute as String) ?? []
+        focusedWindow = windows.first
+    }
+    guard let window = focusedWindow else { return nil }
+
+    // Look for AXSheet children of the window.
+    let sheets: [AXUIElement] = axAttribute(window, "AXSheets") ?? []
+    let candidate: AXUIElement?
+    if alertOnly {
+        candidate = sheets.first(where: { isAlertLike($0) })
+    } else {
+        candidate = sheets.first
+    }
+    guard let sheet = candidate else { return nil }
+
+    if let filter = labelFilter {
+        // Descend into the sheet to find a labeled element.
+        return findElement(root: sheet, selector: .label(filter))
+    }
+
+    return FoundElement(
+        element: sheet,
+        role: axStringAttribute(sheet, kAXRoleAttribute as String),
+        title: axStringAttribute(sheet, kAXTitleAttribute as String),
+        identifier: axStringAttribute(sheet, kAXIdentifierAttribute as String)
+    )
+}
+
+private func isAlertLike(_ element: AXUIElement) -> Bool {
+    if let subrole: String = axStringAttribute(element, kAXSubroleAttribute as String) {
+        if subrole == "AXSystemDialog" || subrole == "AXDialog" { return true }
+    }
+    if let roleDesc: String = axStringAttribute(element, "AXRoleDescription") {
+        if roleDesc.localizedCaseInsensitiveContains("alert") { return true }
+    }
+    return false
 }
 
 // MARK: - Get Element Value

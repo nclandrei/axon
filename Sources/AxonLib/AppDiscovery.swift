@@ -102,6 +102,8 @@ public func resolveElement(appElement: AXUIElement, identifier: String?, label: 
         case .identifier(let v): selectorDesc = "identifier '\(v)'"
         case .label(let v): selectorDesc = "label '\(v)'"
         case .path(let v): selectorDesc = "path '\(v)'"
+        case .sheet(let f): selectorDesc = f.map { "sheet with label '\($0)'" } ?? "sheet"
+        case .alert(let f): selectorDesc = f.map { "alert with label '\($0)'" } ?? "alert"
         }
         printError(
             code: "element_not_found",
