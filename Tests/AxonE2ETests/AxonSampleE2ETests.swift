@@ -204,4 +204,93 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         let existsAfter = runAxon(["exists", "--app", "AxonSample", "--label", "Ephemeral"])
         XCTAssertEqual(parseJSON(existsAfter.stdout)?["exists"] as? Bool, false)
     }
+
+    // MARK: - 8. Canonical end-to-end flow
+
+    func testCanonicalEndToEndFlow() throws {
+        try skipIfSampleNotBuilt()
+
+        // Phase 1: launch and sanity-check environment.
+        try launchSample()
+        let doctor = runAxon(["doctor"])
+        // doctor exits 0 or 1 depending on AX state; only fail on non-JSON output.
+        XCTAssertNotNil(parseJSON(doctor.stdout), "doctor output should be JSON")
+
+        // Phase 2: create and populate a note via menu.
+        _ = runAxon(["menu", "--app", "AxonSample", "--path", "File > New"])
+        _ = runAxon([
+            "type", "--app", "AxonSample",
+            "--identifier", "noteTitleField",
+            "--text", "Meeting Notes",
+            "--clear"
+        ])
+        _ = runAxon([
+            "type", "--app", "AxonSample",
+            "--identifier", "noteBodyField",
+            "--text", "Discussed roadmap for Q2",
+            "--clear"
+        ])
+
+        let titleOk = runAxon([
+            "assert", "--app", "AxonSample",
+            "--identifier", "noteTitleField",
+            "--value", "Meeting Notes"
+        ])
+        XCTAssertEqual(titleOk.exitCode, 0, "title assert: \(titleOk.stderr)")
+
+        let dirtyOk = runAxon([
+            "assert", "--app", "AxonSample",
+            "--identifier", "dirtyStatus",
+            "--value", "modified"
+        ])
+        XCTAssertEqual(dirtyOk.exitCode, 0, "dirty assert: \(dirtyOk.stderr)")
+
+        // Phase 3: save via ⌘S, confirm clean.
+        _ = runAxon(["key", "--app", "AxonSample", "--key", "s", "--modifiers", "command"])
+        let cleanOk = runAxon([
+            "assert", "--app", "AxonSample",
+            "--identifier", "dirtyStatus",
+            "--value", "clean"
+        ])
+        XCTAssertEqual(cleanOk.exitCode, 0, "clean assert: \(cleanOk.stderr)")
+
+        // Phase 4: a second note via ⌘N, then delete it via menu.
+        _ = runAxon(["key", "--app", "AxonSample", "--key", "n", "--modifiers", "command"])
+        _ = runAxon([
+            "type", "--app", "AxonSample",
+            "--identifier", "noteTitleField",
+            "--text", "Throwaway",
+            "--clear"
+        ])
+        let beforeDelete = runAxon(["exists", "--app", "AxonSample", "--label", "Throwaway"])
+        XCTAssertEqual(parseJSON(beforeDelete.stdout)?["exists"] as? Bool, true)
+
+        _ = runAxon(["menu", "--app", "AxonSample", "--path", "File > Delete"])
+        let afterDelete = runAxon(["exists", "--app", "AxonSample", "--label", "Throwaway"])
+        XCTAssertEqual(parseJSON(afterDelete.stdout)?["exists"] as? Bool, false)
+
+        // Phase 5: make the remaining note dirty, attempt close, dismiss with Don't Save.
+        _ = runAxon([
+            "type", "--app", "AxonSample",
+            "--identifier", "noteBodyField",
+            "--text", " (addendum)",
+            "--clear"
+        ])
+        _ = runAxon(["key", "--app", "AxonSample", "--key", "w", "--modifiers", "command"])
+
+        let sheet = runAxon(["exists", "--app", "AxonSample", "--sheet"])
+        XCTAssertEqual(parseJSON(sheet.stdout)?["exists"] as? Bool, true)
+
+        let dontSave = runAxon([
+            "click", "--app", "AxonSample",
+            "--sheet", "--label", "Don't Save"
+        ])
+        XCTAssertEqual(dontSave.exitCode, 0, "Don't Save click: \(dontSave.stderr)")
+
+        // Phase 6: take a screenshot for documentation.
+        let shotPath = NSTemporaryDirectory() + "axon-sample-canonical.png"
+        let shot = runAxon(["screenshot", "--app", "AxonSample", "--output", shotPath])
+        // Screenshot may fail if screen recording isn't granted — that's OK, it's not the point of this test.
+        XCTAssertTrue(shot.exitCode == 0 || shot.stderr.contains("screen"), "unexpected screenshot failure: \(shot.stderr)")
+    }
 }
