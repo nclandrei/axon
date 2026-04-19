@@ -422,6 +422,9 @@ axon wait - Wait for a UI element to appear or disappear
   --app <name>        App name or bundle ID (required)
   --identifier <id>   Match by accessibility identifier
   --label <text>      Match by title or description
+  --path <treepath>   Tree path from 'axon tree'
+  --sheet             Frontmost sheet on active window
+  --alert             Frontmost alert
   --appear            Wait for element to exist (one required)
   --disappear         Wait for element to stop existing (one required)
   --timeout <N>       Timeout in seconds (default: 10)
@@ -1281,12 +1284,18 @@ case "wait":
     let (_, axApp) = resolveApp(name: appName)
 
     let selector: ElementSelector
-    if let id = cli.option("identifier") {
+    if cli.flag("sheet") {
+        selector = .sheet(labelFilter: cli.option("label"))
+    } else if cli.flag("alert") {
+        selector = .alert(labelFilter: cli.option("label"))
+    } else if let id = cli.option("identifier") {
         selector = .identifier(id)
     } else if let lbl = cli.option("label") {
         selector = .label(lbl)
+    } else if let p = cli.option("path") {
+        selector = .path(p)
     } else {
-        printError(code: "missing_selector", message: "Provide --identifier or --label for wait")
+        printError(code: "missing_selector", message: "Provide --identifier, --label, --path, --sheet, or --alert for wait")
         exit(1)
     }
 
@@ -1496,14 +1505,18 @@ case "wait-for-value":
     let (_, axApp) = resolveApp(name: appName)
 
     let selector: ElementSelector
-    if let id = cli.option("identifier") {
+    if cli.flag("sheet") {
+        selector = .sheet(labelFilter: cli.option("label"))
+    } else if cli.flag("alert") {
+        selector = .alert(labelFilter: cli.option("label"))
+    } else if let id = cli.option("identifier") {
         selector = .identifier(id)
     } else if let lbl = cli.option("label") {
         selector = .label(lbl)
     } else if let p = cli.option("path") {
         selector = .path(p)
     } else {
-        printError(code: "missing_selector", message: "Provide --identifier, --label, or --path")
+        printError(code: "missing_selector", message: "Provide --identifier, --label, --path, --sheet, or --alert")
         exit(1)
     }
 

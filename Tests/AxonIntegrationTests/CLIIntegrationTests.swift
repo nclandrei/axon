@@ -871,6 +871,18 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("wait-ready"))
     }
 
+    // MARK: - wait --sheet / --alert
+
+    func testWaitHelpMentionsSheetAlert() {
+        let result = runAxon(["wait", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        // Wait help may list --sheet or sheet; be permissive
+        XCTAssertTrue(
+            result.stderr.contains("sheet") || result.stderr.contains("--sheet"),
+            "wait --help should mention sheet targeting"
+        )
+    }
+
     // MARK: - screenshot --sheet / --alert
 
     func testScreenshotHelpMentionsSheet() {
