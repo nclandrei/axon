@@ -868,4 +868,24 @@ final class CLIIntegrationTests: XCTestCase {
         let result = runAxon(["--help"])
         XCTAssertTrue(result.stderr.contains("wait-ready"))
     }
+
+    // MARK: - M1 final verification
+
+    func testAllNewCommandsAppearInHelp() {
+        let result = runAxon(["--help"])
+        XCTAssertTrue(result.stderr.contains("doctor"), "help missing doctor")
+        XCTAssertTrue(result.stderr.contains("assert"), "help missing assert")
+        XCTAssertTrue(result.stderr.contains("exists"), "help missing exists")
+        XCTAssertTrue(result.stderr.contains("wait-ready"), "help missing wait-ready")
+        XCTAssertTrue(result.stderr.contains("--sheet"), "help missing --sheet")
+        XCTAssertTrue(result.stderr.contains("--alert"), "help missing --alert")
+    }
+
+    func testEachNewCommandHasDedicatedHelp() {
+        for cmd in ["doctor", "assert", "exists", "wait-ready"] {
+            let result = runAxon([cmd, "--help"])
+            XCTAssertEqual(result.exitCode, 0, "\(cmd) --help should exit 0")
+            XCTAssertTrue(result.stderr.contains("axon \(cmd)"), "\(cmd) --help should contain 'axon \(cmd)'")
+        }
+    }
 }
