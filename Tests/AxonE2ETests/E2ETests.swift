@@ -536,4 +536,33 @@ final class E2ETests: AxonE2ETestCase {
         }
         XCTAssertEqual(dismiss.exitCode, 0)
     }
+
+    // MARK: - TextEdit menu navigation
+
+    func testTextEditShowFontsMenu() throws {
+        let launch = runAxon(["launch", "--name", "TextEdit"])
+        try skipIfNoAccessibility(launch)
+        XCTAssertEqual(launch.exitCode, 0)
+        defer { _ = runAxon(["close", "--app", "TextEdit", "--quit"]) }
+
+        _ = runAxon(["wait-ready", "--app", "TextEdit", "--timeout", "5"])
+
+        // Make sure there is a frontmost document so Format menu items are enabled.
+        // TextEdit launches with an Untitled document by default.
+        let menu = runAxon(["menu", "--app", "TextEdit", "--path", "Format > Font > Show Fonts"])
+        try XCTSkipUnless(menu.exitCode == 0, "menu nav failed (labels may differ by locale/OS): \(menu.stderr)")
+
+        // The Font panel should now exist. It appears as a separate window titled "Fonts".
+        // Give it a moment to appear.
+        let fontPanelPresent = runAxon([
+            "wait", "--app", "TextEdit",
+            "--label", "Fonts",
+            "--appear",
+            "--timeout", "3"
+        ])
+        XCTAssertEqual(fontPanelPresent.exitCode, 0, "Font panel did not appear: \(fontPanelPresent.stderr)")
+
+        // Close it.
+        _ = runAxon(["key", "--app", "TextEdit", "--key", "t", "--modifiers", "command"])
+    }
 }
