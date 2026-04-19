@@ -1714,10 +1714,7 @@ case "assert":
 case "exists":
     // Unlike other commands, exists is designed to always exit 0 on any lookup result.
     // It short-circuits the "app not found exits 1" behavior by catching that case explicitly.
-    guard AXIsProcessTrusted() else {
-        printError(code: "accessibility_not_trusted", message: "axon does not have accessibility permissions.")
-        exit(1)
-    }
+    checkAccessibilityPermission()
     let appName = cli.requireOption("app")
     guard let appRunning = findApp(name: appName) else {
         printJSON(ExistsOutput(success: true, exists: false, count: 0))
