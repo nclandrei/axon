@@ -835,3 +835,35 @@ public func performWaitForValue(appElement: AXUIElement, selector: ElementSelect
 
     return nil // timeout
 }
+
+// MARK: - Wait Ready
+
+/// Poll until the app's AX tree has at least one window with at least one child,
+/// and responds to attribute copies within 500ms. Returns elapsed ms or nil on timeout.
+public func performWaitReady(appElement: AXUIElement, timeout: TimeInterval) -> Int? {
+    let start = Date()
+    let pollInterval: TimeInterval = 0.2
+
+    while Date().timeIntervalSince(start) < timeout {
+        if appIsReady(appElement) {
+            return Int(Date().timeIntervalSince(start) * 1000)
+        }
+        Thread.sleep(forTimeInterval: pollInterval)
+    }
+    return nil
+}
+
+private func appIsReady(_ appElement: AXUIElement) -> Bool {
+    // 1. Has at least one window.
+    let windows: [AXUIElement] = axAttribute(appElement, kAXWindowsAttribute as String) ?? []
+    guard let window = windows.first else { return false }
+    // 2. Window has at least one child.
+    let kids = axChildren(window)
+    guard !kids.isEmpty else { return false }
+    // 3. App responds to a basic attribute copy within 500ms (best effort via actual call).
+    let callStart = Date()
+    var raw: AnyObject?
+    _ = AXUIElementCopyAttributeValue(appElement, kAXTitleAttribute as CFString, &raw)
+    let callMs = Date().timeIntervalSince(callStart) * 1000
+    return callMs < 500
+}

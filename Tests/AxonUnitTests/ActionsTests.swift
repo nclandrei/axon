@@ -130,4 +130,23 @@ final class ActionsTests: XCTestCase {
             XCTAssertNotNil(Int(part))
         }
     }
+
+    // MARK: - performWaitReady
+
+    func testWaitReadyTimesOutOnUnreadyElement() {
+        // Self app has no windows; wait-ready should time out.
+        let selfApp = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
+        let elapsed = performWaitReady(appElement: selfApp, timeout: 0.5)
+        XCTAssertNil(elapsed)
+    }
+
+    func testWaitReadyReturnsQuicklyOnReadyApp() throws {
+        // Finder is almost always running and ready.
+        guard let finder = findApp(name: "Finder") else {
+            throw XCTSkip("Finder not running")
+        }
+        let axFinder = appElement(for: finder)
+        let elapsed = performWaitReady(appElement: axFinder, timeout: 5.0)
+        XCTAssertNotNil(elapsed)
+    }
 }
