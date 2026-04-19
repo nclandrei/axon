@@ -42,6 +42,33 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         XCTAssertEqual(parseJSON(row.stdout)?["exists"] as? Bool, true)
     }
 
+    // MARK: - 4. File > New menu
+
+    func testFileNewMenuAddsNote() throws {
+        try skipIfSampleNotBuilt()
+        try launchSample()
+
+        let before = runAxon(["exists", "--app", "AxonSample", "--label", "Untitled"])
+        XCTAssertEqual(parseJSON(before.stdout)?["exists"] as? Bool, false)
+
+        let menu = runAxon(["menu", "--app", "AxonSample", "--path", "File > New"])
+        XCTAssertEqual(menu.exitCode, 0, "menu nav failed: \(menu.stderr)")
+
+        let after = runAxon(["exists", "--app", "AxonSample", "--label", "Untitled"])
+        XCTAssertEqual(parseJSON(after.stdout)?["exists"] as? Bool, true)
+    }
+
+    func testCommandNAddsNote() throws {
+        try skipIfSampleNotBuilt()
+        try launchSample()
+
+        let key = runAxon(["key", "--app", "AxonSample", "--key", "n", "--modifiers", "command"])
+        XCTAssertEqual(key.exitCode, 0, "⌘N failed: \(key.stderr)")
+
+        let row = runAxon(["exists", "--app", "AxonSample", "--label", "Untitled"])
+        XCTAssertEqual(parseJSON(row.stdout)?["exists"] as? Bool, true)
+    }
+
     // MARK: - 3. Editor reflects typed content
 
     func testTypingUpdatesNoteTitleAndBody() throws {

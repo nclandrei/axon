@@ -9,5 +9,11 @@ struct AxonSampleApp: App {
             ContentView()
                 .environmentObject(store)
         }
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("New Note") { store.createNote() }
+                    .keyboardShortcut("n", modifiers: .command)
+            }
+        }
     }
 }
