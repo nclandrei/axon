@@ -106,3 +106,61 @@ public func runDoctor(
     let ready = !checks.contains(where: { $0.status == .fail })
     return DoctorOutput(ready: ready, checks: checks)
 }
+
+/// Live entrypoint used by `axon doctor`. Probes actual system state and delegates to `runDoctor`.
+public func runDoctorLive() -> DoctorOutput {
+    return runDoctor(
+        axTrusted: AXIsProcessTrusted(),
+        screenCaptureGranted: CGPreflightScreenCaptureAccess(),
+        isAppleSilicon: isAppleSiliconArchitecture(),
+        tartInstalled: isTartOnPath(),
+        binarySignatureInfo: binarySignatureOfRunningProcess()
+    )
+}
+
+private func isAppleSiliconArchitecture() -> Bool {
+    #if arch(arm64)
+    return true
+    #else
+    return false
+    #endif
+}
+
+private func isTartOnPath() -> Bool {
+    let task = Process()
+    task.launchPath = "/usr/bin/env"
+    task.arguments = ["which", "tart"]
+    task.standardOutput = Pipe()
+    task.standardError = Pipe()
+    do {
+        try task.run()
+    } catch {
+        return false
+    }
+    task.waitUntilExit()
+    return task.terminationStatus == 0
+}
+
+private func binarySignatureOfRunningProcess() -> String? {
+    guard let path = Bundle.main.executablePath ?? CommandLine.arguments.first else { return nil }
+    let task = Process()
+    task.launchPath = "/usr/bin/codesign"
+    task.arguments = ["-dvv", path]
+    let err = Pipe()
+    task.standardError = err
+    task.standardOutput = Pipe()
+    do {
+        try task.run()
+    } catch {
+        return nil
+    }
+    task.waitUntilExit()
+    guard task.terminationStatus == 0 else { return nil }
+    let data = err.fileHandleForReading.readDataToEndOfFile()
+    guard let text = String(data: data, encoding: .utf8) else { return nil }
+    // Return the first "Authority=" line if present.
+    return text
+        .split(separator: "\n")
+        .first(where: { $0.hasPrefix("Authority=") })
+        .map(String.init)
+}

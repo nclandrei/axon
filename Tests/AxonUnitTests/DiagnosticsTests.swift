@@ -107,4 +107,17 @@ final class DiagnosticsTests: XCTestCase {
         let output = runDoctor(axTrusted: true, screenCaptureGranted: true, isAppleSilicon: false, tartInstalled: false, binarySignatureInfo: nil)
         XCTAssertTrue(output.ready, "ready should be true when only informational checks warn")
     }
+
+    // MARK: - Live probe
+
+    func testRunDoctorLiveReturnsWellFormedOutput() {
+        let output = runDoctorLive()
+        XCTAssertFalse(output.checks.isEmpty)
+        let names = Set(output.checks.map(\.name))
+        XCTAssertTrue(names.contains("accessibility"))
+        XCTAssertTrue(names.contains("screen_recording"))
+        XCTAssertTrue(names.contains("architecture"))
+        XCTAssertTrue(names.contains("tart"))
+        XCTAssertTrue(names.contains("binary_signature"))
+    }
 }
