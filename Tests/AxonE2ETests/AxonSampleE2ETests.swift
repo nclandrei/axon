@@ -112,4 +112,38 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         ])
         XCTAssertEqual(bodyAssert.exitCode, 0, "body assert failed: \(bodyAssert.stderr)")
     }
+
+    // MARK: - 5. Save clears the dirty indicator
+
+    func testSaveClearsDirty() throws {
+        try skipIfSampleNotBuilt()
+        try launchSample()
+
+        // Create + edit → dirty
+        _ = runAxon(["click", "--app", "AxonSample", "--identifier", "newNoteButton"])
+        _ = runAxon([
+            "type", "--app", "AxonSample",
+            "--identifier", "noteTitleField",
+            "--text", "X",
+            "--clear"
+        ])
+
+        let dirty = runAxon([
+            "assert", "--app", "AxonSample",
+            "--identifier", "dirtyStatus",
+            "--value", "modified"
+        ])
+        XCTAssertEqual(dirty.exitCode, 0, "dirty assert failed: \(dirty.stderr)")
+
+        // Save via menu
+        let save = runAxon(["menu", "--app", "AxonSample", "--path", "File > Save"])
+        XCTAssertEqual(save.exitCode, 0, "save failed: \(save.stderr)")
+
+        let clean = runAxon([
+            "assert", "--app", "AxonSample",
+            "--identifier", "dirtyStatus",
+            "--value", "clean"
+        ])
+        XCTAssertEqual(clean.exitCode, 0, "clean assert failed: \(clean.stderr)")
+    }
 }

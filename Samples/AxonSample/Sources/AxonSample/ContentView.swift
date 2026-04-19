@@ -24,11 +24,23 @@ struct ContentView: View {
                 .accessibilityIdentifier("notesList")
             }
         } detail: {
-            if let note = store.selectedNote {
-                Editor(note: note)
-            } else {
-                Text("No note selected")
-                    .accessibilityIdentifier("noSelectionPlaceholder")
+            VStack(spacing: 0) {
+                if let note = store.selectedNote {
+                    Editor(note: note)
+                    HStack {
+                        Text(note.isDirty ? "modified" : "clean")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .accessibilityIdentifier("dirtyStatus")
+                            .accessibilityLabel(note.isDirty ? "modified" : "clean")
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                } else {
+                    Text("No note selected")
+                        .accessibilityIdentifier("noSelectionPlaceholder")
+                }
             }
         }
         .frame(minWidth: 640, minHeight: 400)

@@ -28,4 +28,8 @@ final class NotesStore: ObservableObject {
         guard let id = selectedID else { return nil }
         return notes.first(where: { $0.id == id })
     }
+
+    func save() {
+        selectedNote?.isDirty = false
+    }
 }

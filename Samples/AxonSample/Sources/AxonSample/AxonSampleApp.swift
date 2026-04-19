@@ -14,6 +14,11 @@ struct AxonSampleApp: App {
                 Button("New Note") { store.createNote() }
                     .keyboardShortcut("n", modifiers: .command)
             }
+            CommandGroup(replacing: .saveItem) {
+                Button("Save") { store.save() }
+                    .keyboardShortcut("s", modifiers: .command)
+                    .disabled(store.selectedNote == nil)
+            }
         }
     }
 }
