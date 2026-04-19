@@ -136,8 +136,8 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
 
         let dirty = runAxon([
             "assert", "--app", "AxonSample",
-            "--identifier", "dirtyStatus",
-            "--value", "modified"
+            "--label", "modified",
+            "--exists"
         ])
         XCTAssertEqual(dirty.exitCode, 0, "dirty assert failed: \(dirty.stderr)")
 
@@ -147,8 +147,8 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
 
         let clean = runAxon([
             "assert", "--app", "AxonSample",
-            "--identifier", "dirtyStatus",
-            "--value", "clean"
+            "--label", "clean",
+            "--exists"
         ])
         XCTAssertEqual(clean.exitCode, 0, "clean assert failed: \(clean.stderr)")
     }
@@ -249,8 +249,8 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
 
         let dirtyOk = runAxon([
             "assert", "--app", "AxonSample",
-            "--identifier", "dirtyStatus",
-            "--value", "modified"
+            "--label", "modified",
+            "--exists"
         ])
         XCTAssertEqual(dirtyOk.exitCode, 0, "dirty assert: \(dirtyOk.stderr)")
 
@@ -258,8 +258,8 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         _ = runAxon(["key", "--app", "AxonSample", "--key", "s", "--modifiers", "command"])
         let cleanOk = runAxon([
             "assert", "--app", "AxonSample",
-            "--identifier", "dirtyStatus",
-            "--value", "clean"
+            "--label", "clean",
+            "--exists"
         ])
         XCTAssertEqual(cleanOk.exitCode, 0, "clean assert: \(cleanOk.stderr)")
 
