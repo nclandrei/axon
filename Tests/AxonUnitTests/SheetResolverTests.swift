@@ -31,13 +31,4 @@ final class SheetResolverTests: XCTestCase {
         XCTAssertNil(found)
     }
 
-    // MARK: - resolveElement integration
-
-    // Note: resolveElement exits the process on missing element, so we can't easily
-    // unit test the error path. We do verify it accepts the new signature without crashing.
-
-    func testResolveElementSignatureAcceptsSheetFlag() {
-        // Compile-time check: the new signature exists.
-        let _: (AXUIElement, String?, String?, String?, Bool, Bool, String) -> FoundElement = resolveElement(appElement:identifier:label:path:sheet:alert:appName:)
-    }
 }
