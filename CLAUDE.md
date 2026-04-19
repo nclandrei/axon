@@ -8,6 +8,7 @@ swift test                                # Run all tests
 swift test --filter AxonUnitTests         # Unit tests only (fast, no side effects)
 swift test --filter AxonIntegrationTests  # Integration tests (runs binary, no GUI interaction)
 swift test --filter AxonE2ETests          # E2E tests (drives real apps, steals focus)
+make verify                               # Build axon + sample, run all three test tiers (local only)
 ```
 
 **Background agents must use `--filter AxonUnitTests --filter AxonIntegrationTests`** — E2E tests steal focus and show system dialogs.
