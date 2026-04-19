@@ -80,6 +80,9 @@ Element targeting (<target> in click, type, scroll, wait):
   --identifier <id>   Accessibility identifier (exact match)
   --label <text>      Title or description (exact, then case-insensitive contains)
   --path <treepath>   Tree path from 'axon tree' output
+  --sheet             Frontmost sheet attached to the active window
+  --alert             Frontmost sheet recognized as an alert
+  (--sheet and --alert compose with --label to pick a descendant.)
 
   Priority: identifier > exact label > contains match. Prefers enabled elements.
   Use 'axon tree --compact' to discover identifiers and paths.
@@ -194,6 +197,8 @@ axon click - Click a UI element
   --identifier <id>   Match by accessibility identifier
   --label <text>      Match by title or description
   --path <path>       Match by tree path (from 'axon tree')
+  --sheet               Target the frontmost sheet (e.g. unsaved-changes dialog)
+  --alert               Target the frontmost alert
   --modifiers <mods>  Modifier keys: cmd, shift, alt, ctrl, fn (joined with +)
 
 Activates app before clicking. Uses AXPress action (or CGEvent click when modifiers given).
@@ -844,6 +849,8 @@ case "click":
         identifier: cli.option("identifier"),
         label: cli.option("label"),
         path: cli.option("path"),
+        sheet: cli.flag("sheet"),
+        alert: cli.flag("alert"),
         appName: appName
     )
 
@@ -877,6 +884,8 @@ case "double-click":
         identifier: cli.option("identifier"),
         label: cli.option("label"),
         path: cli.option("path"),
+        sheet: cli.flag("sheet"),
+        alert: cli.flag("alert"),
         appName: appName
     )
 
@@ -910,6 +919,8 @@ case "right-click":
         identifier: cli.option("identifier"),
         label: cli.option("label"),
         path: cli.option("path"),
+        sheet: cli.flag("sheet"),
+        alert: cli.flag("alert"),
         appName: appName
     )
 
@@ -943,6 +954,8 @@ case "hover":
         identifier: cli.option("identifier"),
         label: cli.option("label"),
         path: cli.option("path"),
+        sheet: cli.flag("sheet"),
+        alert: cli.flag("alert"),
         appName: appName
     )
 
@@ -975,7 +988,7 @@ case "drag":
         printError(code: "missing_option", message: "Provide --from-identifier, --from-label, or --from-path for source element")
         exit(1)
     }
-    let fromFound = resolveElement(appElement: axApp, identifier: fromId, label: fromLabel, path: fromPath, appName: appName)
+    let fromFound = resolveElement(appElement: axApp, identifier: fromId, label: fromLabel, path: fromPath, sheet: false, alert: false, appName: appName)
 
     let toId = cli.option("to-identifier")
     let toLabel = cli.option("to-label")
@@ -984,7 +997,7 @@ case "drag":
         printError(code: "missing_option", message: "Provide --to-identifier, --to-label, or --to-path for destination element")
         exit(1)
     }
-    let toFound = resolveElement(appElement: axApp, identifier: toId, label: toLabel, path: toPath, appName: appName)
+    let toFound = resolveElement(appElement: axApp, identifier: toId, label: toLabel, path: toPath, sheet: false, alert: false, appName: appName)
 
     let duration = cli.doubleOption("duration") ?? 0.5
 
@@ -1016,6 +1029,8 @@ case "type":
         identifier: cli.option("identifier"),
         label: cli.option("label"),
         path: cli.option("path"),
+        sheet: cli.flag("sheet"),
+        alert: cli.flag("alert"),
         appName: appName
     )
 
@@ -1069,6 +1084,8 @@ case "scroll":
         identifier: cli.option("identifier"),
         label: cli.option("label"),
         path: cli.option("path"),
+        sheet: cli.flag("sheet"),
+        alert: cli.flag("alert"),
         appName: appName
     )
 
@@ -1119,6 +1136,8 @@ case "screenshot":
             identifier: elementId,
             label: elementLabel,
             path: elementPath,
+            sheet: cli.flag("sheet"),
+            alert: cli.flag("alert"),
             appName: appName
         )
         if let ssOutput = captureElementScreenshot(app: app, element: found.element, outputPath: outputPath) {
@@ -1216,6 +1235,8 @@ case "get-value":
         identifier: cli.option("identifier"),
         label: cli.option("label"),
         path: cli.option("path"),
+        sheet: cli.flag("sheet"),
+        alert: cli.flag("alert"),
         appName: appName
     )
 
@@ -1376,6 +1397,8 @@ case "set-value":
         identifier: cli.option("identifier"),
         label: cli.option("label"),
         path: cli.option("path"),
+        sheet: cli.flag("sheet"),
+        alert: cli.flag("alert"),
         appName: appName
     )
 

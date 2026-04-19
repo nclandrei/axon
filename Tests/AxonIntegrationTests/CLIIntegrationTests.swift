@@ -780,4 +780,25 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.contains("doctor"), "main --help should list doctor")
     }
+
+    // MARK: - --sheet / --alert wiring
+
+    func testClickSheetHelpMentionsSheetFlag() {
+        let result = runAxon(["click", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.stderr.contains("--sheet") || result.stderr.contains("sheet"),
+            "click --help should mention sheet targeting"
+        )
+    }
+
+    func testMainHelpMentionsSheetFlag() {
+        let result = runAxon(["--help"])
+        XCTAssertTrue(result.stderr.contains("--sheet"), "main --help should document --sheet")
+    }
+
+    func testMainHelpMentionsAlertFlag() {
+        let result = runAxon(["--help"])
+        XCTAssertTrue(result.stderr.contains("--alert"), "main --help should document --alert")
+    }
 }
