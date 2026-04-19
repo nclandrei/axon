@@ -54,6 +54,9 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         let menu = runAxon(["menu", "--app", "AxonSample", "--path", "File > New"])
         XCTAssertEqual(menu.exitCode, 0, "menu nav failed: \(menu.stderr)")
 
+        let wait = runAxon(["wait", "--app", "AxonSample", "--label", "Untitled", "--appear", "--timeout", "3"])
+        XCTAssertEqual(wait.exitCode, 0, "Untitled row did not appear: \(wait.stderr)")
+
         let after = runAxon(["exists", "--app", "AxonSample", "--label", "Untitled"])
         XCTAssertEqual(parseJSON(after.stdout)?["exists"] as? Bool, true)
     }
@@ -64,6 +67,9 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
 
         let key = runAxon(["key", "--app", "AxonSample", "--key", "n", "--modifiers", "command"])
         XCTAssertEqual(key.exitCode, 0, "⌘N failed: \(key.stderr)")
+
+        let wait = runAxon(["wait", "--app", "AxonSample", "--label", "Untitled", "--appear", "--timeout", "3"])
+        XCTAssertEqual(wait.exitCode, 0, "Untitled row did not appear: \(wait.stderr)")
 
         let row = runAxon(["exists", "--app", "AxonSample", "--label", "Untitled"])
         XCTAssertEqual(parseJSON(row.stdout)?["exists"] as? Bool, true)
@@ -164,6 +170,9 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         // Attempt to close the window — triggers the sheet because the note is dirty
         let close = runAxon(["key", "--app", "AxonSample", "--key", "w", "--modifiers", "command"])
         XCTAssertEqual(close.exitCode, 0, close.stderr)
+
+        let sheetWait = runAxon(["wait", "--app", "AxonSample", "--sheet", "--appear", "--timeout", "3"])
+        XCTAssertEqual(sheetWait.exitCode, 0, "sheet did not appear: \(sheetWait.stderr)")
 
         // Sheet should exist — probe via --sheet
         let sheetExists = runAxon(["exists", "--app", "AxonSample", "--sheet"])
@@ -277,6 +286,9 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
             "--clear"
         ])
         _ = runAxon(["key", "--app", "AxonSample", "--key", "w", "--modifiers", "command"])
+
+        let sheetWait = runAxon(["wait", "--app", "AxonSample", "--sheet", "--appear", "--timeout", "3"])
+        XCTAssertEqual(sheetWait.exitCode, 0, "sheet did not appear: \(sheetWait.stderr)")
 
         let sheet = runAxon(["exists", "--app", "AxonSample", "--sheet"])
         XCTAssertEqual(parseJSON(sheet.stdout)?["exists"] as? Bool, true)
