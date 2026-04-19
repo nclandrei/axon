@@ -1649,8 +1649,34 @@ case "assert":
         exit(1)
     }
 
+    if spec.exists && spec.notExists {
+        printError(code: "conflicting_flags", message: "--exists and --not-exists cannot both be set")
+        exit(1)
+    }
+    if spec.enabled && spec.disabled {
+        printError(code: "conflicting_flags", message: "--enabled and --disabled cannot both be set")
+        exit(1)
+    }
+
     let requiresElement = spec.exists || spec.value != nil || spec.valueMatches != nil ||
                           spec.enabled || spec.disabled || spec.focused
+
+    // Require a selector before touching the app — callers must always identify what they are asserting about.
+    let selector: ElementSelector
+    if cli.flag("sheet") {
+        selector = .sheet(labelFilter: cli.option("label"))
+    } else if cli.flag("alert") {
+        selector = .alert(labelFilter: cli.option("label"))
+    } else if let id = cli.option("identifier") {
+        selector = .identifier(id)
+    } else if let lbl = cli.option("label") {
+        selector = .label(lbl)
+    } else if let p = cli.option("path") {
+        selector = .path(p)
+    } else {
+        printError(code: "missing_selector", message: "Provide --identifier, --label, --path, --sheet, or --alert")
+        exit(1)
+    }
 
     // Find the app; don't exit on missing.
     guard let appRunning = findApp(name: appName) else {
@@ -1669,23 +1695,7 @@ case "assert":
 
     if !noActivate { activateApp(app) }
 
-    // Try to find the element; allow missing if user is asserting --not-exists only.
-    let selector: ElementSelector?
-    if cli.flag("sheet") {
-        selector = .sheet(labelFilter: cli.option("label"))
-    } else if cli.flag("alert") {
-        selector = .alert(labelFilter: cli.option("label"))
-    } else if let id = cli.option("identifier") {
-        selector = .identifier(id)
-    } else if let lbl = cli.option("label") {
-        selector = .label(lbl)
-    } else if let p = cli.option("path") {
-        selector = .path(p)
-    } else {
-        selector = nil
-    }
-
-    let foundOpt: FoundElement? = selector.flatMap { findElement(root: axApp, selector: $0) }
+    let foundOpt: FoundElement? = findElement(root: axApp, selector: selector)
 
     // If caller asked for anything beyond --not-exists and the element isn't there, exit 2.
     if requiresElement && foundOpt == nil {

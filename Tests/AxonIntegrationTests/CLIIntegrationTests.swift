@@ -913,4 +913,34 @@ final class CLIIntegrationTests: XCTestCase {
             XCTAssertTrue(result.stderr.contains("axon \(cmd)"), "\(cmd) --help should contain 'axon \(cmd)'")
         }
     }
+
+    // MARK: - assert input validation
+
+    func testAssertNoSelectorIsMissingSelectorError() {
+        // Missing selector with any assertion spec must error out, including --not-exists.
+        let result = runAxon(["assert", "--app", "NonExistentApp_XYZ_999", "--not-exists"])
+        XCTAssertEqual(result.exitCode, 1, "no selector provided should be a missing_option error")
+        XCTAssertTrue(
+            result.stderr.contains("missing_selector") || result.stderr.lowercased().contains("selector"),
+            "stderr should signal a missing selector"
+        )
+    }
+
+    func testAssertExistsAndNotExistsRejected() {
+        let result = runAxon(["assert", "--app", "Finder", "--identifier", "x", "--exists", "--not-exists"])
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(
+            result.stderr.contains("conflicting") || result.stderr.contains("incompatible") || result.stderr.lowercased().contains("cannot"),
+            "stderr should call out the contradictory flags"
+        )
+    }
+
+    func testAssertEnabledAndDisabledRejected() {
+        let result = runAxon(["assert", "--app", "Finder", "--identifier", "x", "--enabled", "--disabled"])
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(
+            result.stderr.contains("conflicting") || result.stderr.contains("incompatible") || result.stderr.lowercased().contains("cannot"),
+            "stderr should call out the contradictory flags"
+        )
+    }
 }
