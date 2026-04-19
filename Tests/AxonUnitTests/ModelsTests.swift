@@ -1305,4 +1305,55 @@ final class ModelsTests: XCTestCase {
         XCTAssertNil(decoded.previousValue)
         XCTAssertNil(decoded.newValue)
     }
+
+    // MARK: - DoctorOutput tests
+
+    func testDoctorCheckEncoding() throws {
+        let check = DoctorCheck(
+            name: "accessibility",
+            status: .ok,
+            message: "AX trust granted",
+            fix_hint: nil
+        )
+        let data = try jsonEncoder.encode(check)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertEqual(json["name"] as? String, "accessibility")
+        XCTAssertEqual(json["status"] as? String, "ok")
+        XCTAssertEqual(json["message"] as? String, "AX trust granted")
+        XCTAssertNil(json["fix_hint"])
+    }
+
+    func testDoctorCheckEncodingWithFixHint() throws {
+        let check = DoctorCheck(
+            name: "accessibility",
+            status: .fail,
+            message: "Not granted",
+            fix_hint: "Enable in System Settings"
+        )
+        let data = try jsonEncoder.encode(check)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertEqual(json["status"] as? String, "fail")
+        XCTAssertEqual(json["fix_hint"] as? String, "Enable in System Settings")
+    }
+
+    func testDoctorOutputEncoding() throws {
+        let output = DoctorOutput(
+            ready: false,
+            checks: [
+                DoctorCheck(name: "a", status: .ok, message: "ok", fix_hint: nil),
+                DoctorCheck(name: "b", status: .fail, message: "no", fix_hint: "fix it"),
+            ]
+        )
+        let data = try jsonEncoder.encode(output)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertEqual(json["ready"] as? Bool, false)
+        let checks = json["checks"] as! [[String: Any]]
+        XCTAssertEqual(checks.count, 2)
+    }
+
+    func testDoctorStatusRawValues() {
+        XCTAssertEqual(DoctorStatus.ok.rawValue, "ok")
+        XCTAssertEqual(DoctorStatus.warn.rawValue, "warn")
+        XCTAssertEqual(DoctorStatus.fail.rawValue, "fail")
+    }
 }

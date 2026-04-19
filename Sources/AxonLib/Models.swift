@@ -592,6 +592,50 @@ public struct SetValueOutput: Codable {
     }
 }
 
+// MARK: - Doctor Output
+
+public enum DoctorStatus: String, Codable {
+    case ok
+    case warn
+    case fail
+}
+
+public struct DoctorCheck: Codable {
+    public let name: String
+    public let status: DoctorStatus
+    public let message: String
+    public let fix_hint: String?
+
+    public init(name: String, status: DoctorStatus, message: String, fix_hint: String?) {
+        self.name = name
+        self.status = status
+        self.message = message
+        self.fix_hint = fix_hint
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encode(status, forKey: .status)
+        try c.encode(message, forKey: .message)
+        if let fix_hint = fix_hint { try c.encode(fix_hint, forKey: .fix_hint) }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name, status, message, fix_hint
+    }
+}
+
+public struct DoctorOutput: Codable {
+    public let ready: Bool
+    public let checks: [DoctorCheck]
+
+    public init(ready: Bool, checks: [DoctorCheck]) {
+        self.ready = ready
+        self.checks = checks
+    }
+}
+
 // MARK: - Error Output
 
 public struct ErrorOutput: Codable {
