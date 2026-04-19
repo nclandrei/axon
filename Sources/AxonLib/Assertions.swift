@@ -87,5 +87,24 @@ public func evaluateAssertions(_ spec: AssertionSpec, on element: AXUIElement?, 
         }
     }
 
+    if spec.enabled {
+        let actual = snapshot?.enabled
+        if actual != true {
+            failures.append(AssertFailure(assertion: "enabled", expected: "true", actual: actual.map(String.init) ?? "<nil>"))
+        }
+    }
+    if spec.disabled {
+        let actual = snapshot?.enabled
+        if actual != false {
+            failures.append(AssertFailure(assertion: "disabled", expected: "false", actual: actual.map(String.init) ?? "<nil>"))
+        }
+    }
+    if spec.focused {
+        let actual = snapshot?.focused
+        if actual != true {
+            failures.append(AssertFailure(assertion: "focused", expected: "true", actual: actual.map(String.init) ?? "<nil>"))
+        }
+    }
+
     return failures
 }

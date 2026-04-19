@@ -97,4 +97,73 @@ final class AssertionsTests: XCTestCase {
         XCTAssertEqual(failures.count, 1)
         XCTAssertEqual(failures[0].actual, "<nil>")
     }
+
+    // MARK: - enabled / disabled / focused
+
+    private func snap(enabled: Bool? = nil, focused: Bool? = nil, value: String? = nil) -> ElementSnapshot {
+        return ElementSnapshot(value: value, enabled: enabled, focused: focused)
+    }
+
+    func testEnabledPasses() {
+        var spec = AssertionSpec()
+        spec.enabled = true
+        let failures = evaluateAssertions(spec, on: AXUIElementCreateSystemWide(), snapshot: snap(enabled: true))
+        XCTAssertTrue(failures.isEmpty)
+    }
+
+    func testEnabledFails() {
+        var spec = AssertionSpec()
+        spec.enabled = true
+        let failures = evaluateAssertions(spec, on: AXUIElementCreateSystemWide(), snapshot: snap(enabled: false))
+        XCTAssertEqual(failures.count, 1)
+        XCTAssertEqual(failures[0].assertion, "enabled")
+    }
+
+    func testEnabledFailsOnUnknown() {
+        var spec = AssertionSpec()
+        spec.enabled = true
+        let failures = evaluateAssertions(spec, on: AXUIElementCreateSystemWide(), snapshot: snap(enabled: nil))
+        XCTAssertEqual(failures.count, 1)
+        XCTAssertEqual(failures[0].actual, "<nil>")
+    }
+
+    func testDisabledPasses() {
+        var spec = AssertionSpec()
+        spec.disabled = true
+        let failures = evaluateAssertions(spec, on: AXUIElementCreateSystemWide(), snapshot: snap(enabled: false))
+        XCTAssertTrue(failures.isEmpty)
+    }
+
+    func testDisabledFails() {
+        var spec = AssertionSpec()
+        spec.disabled = true
+        let failures = evaluateAssertions(spec, on: AXUIElementCreateSystemWide(), snapshot: snap(enabled: true))
+        XCTAssertEqual(failures.count, 1)
+        XCTAssertEqual(failures[0].assertion, "disabled")
+    }
+
+    func testFocusedPasses() {
+        var spec = AssertionSpec()
+        spec.focused = true
+        let failures = evaluateAssertions(spec, on: AXUIElementCreateSystemWide(), snapshot: snap(focused: true))
+        XCTAssertTrue(failures.isEmpty)
+    }
+
+    func testFocusedFails() {
+        var spec = AssertionSpec()
+        spec.focused = true
+        let failures = evaluateAssertions(spec, on: AXUIElementCreateSystemWide(), snapshot: snap(focused: false))
+        XCTAssertEqual(failures.count, 1)
+        XCTAssertEqual(failures[0].assertion, "focused")
+    }
+
+    func testMultipleAssertionsCompose() {
+        var spec = AssertionSpec()
+        spec.enabled = true
+        spec.focused = true
+        let failures = evaluateAssertions(spec, on: AXUIElementCreateSystemWide(), snapshot: snap(enabled: false, focused: false))
+        XCTAssertEqual(failures.count, 2)
+        let names = Set(failures.map(\.assertion))
+        XCTAssertEqual(names, ["enabled", "focused"])
+    }
 }
