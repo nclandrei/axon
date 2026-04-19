@@ -368,6 +368,8 @@ axon screenshot - Capture an app window, element, or the full screen as PNG
   --identifier <id>   Capture a specific element by identifier
   --label <text>      Capture a specific element by label
   --path <path>       Capture a specific element by tree path
+  --sheet             Target the frontmost sheet on this window
+  --alert             Target the frontmost alert
 
 Activates app before capture. Captures at Retina resolution.
 Element screenshot captures the screen region matching the element's bounds.
@@ -1177,6 +1179,7 @@ case "screenshot":
     let elementLabel = cli.option("label")
     let elementPath = cli.option("path")
     let hasElementTarget = elementId != nil || elementLabel != nil || elementPath != nil
+                        || cli.flag("sheet") || cli.flag("alert")
 
     // Full-screen without --app: just capture and exit
     if fullScreen && appName == nil {

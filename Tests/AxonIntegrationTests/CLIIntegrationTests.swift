@@ -871,6 +871,17 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("wait-ready"))
     }
 
+    // MARK: - screenshot --sheet / --alert
+
+    func testScreenshotHelpMentionsSheet() {
+        let result = runAxon(["screenshot", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.stderr.contains("--sheet") || result.stderr.contains("sheet"),
+            "screenshot --help should mention sheet targeting"
+        )
+    }
+
     // MARK: - M1 final verification
 
     func testAllNewCommandsAppearInHelp() {
