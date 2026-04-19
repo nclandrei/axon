@@ -147,6 +147,40 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         XCTAssertEqual(clean.exitCode, 0, "clean assert failed: \(clean.stderr)")
     }
 
+    // MARK: - 7. Unsaved sheet appears on close attempt and responds to --sheet targeting
+
+    func testUnsavedSheetOnCloseAttemptDontSave() throws {
+        try skipIfSampleNotBuilt()
+        try launchSample()
+
+        _ = runAxon(["click", "--app", "AxonSample", "--identifier", "newNoteButton"])
+        _ = runAxon([
+            "type", "--app", "AxonSample",
+            "--identifier", "noteTitleField",
+            "--text", "Unsaved",
+            "--clear"
+        ])
+
+        // Attempt to close the window — triggers the sheet because the note is dirty
+        let close = runAxon(["key", "--app", "AxonSample", "--key", "w", "--modifiers", "command"])
+        XCTAssertEqual(close.exitCode, 0, close.stderr)
+
+        // Sheet should exist — probe via --sheet
+        let sheetExists = runAxon(["exists", "--app", "AxonSample", "--sheet"])
+        XCTAssertEqual(parseJSON(sheetExists.stdout)?["exists"] as? Bool, true)
+
+        // Click "Don't Save"
+        let dontSave = runAxon([
+            "click", "--app", "AxonSample",
+            "--sheet", "--label", "Don't Save"
+        ])
+        XCTAssertEqual(dontSave.exitCode, 0, "don't save click failed: \(dontSave.stderr)")
+
+        // Note should be gone (discarded)
+        let stillThere = runAxon(["exists", "--app", "AxonSample", "--label", "Unsaved"])
+        XCTAssertEqual(parseJSON(stillThere.stdout)?["exists"] as? Bool, false)
+    }
+
     // MARK: - 6. Delete removes the selected note
 
     func testDeleteRemovesSelectedNote() throws {

@@ -44,5 +44,12 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 640, minHeight: 400)
+        .sheet(isPresented: $store.showUnsavedSheet) {
+            UnsavedSheet(
+                onSave: store.dismissSheetSave,
+                onDontSave: store.dismissSheetDontSave,
+                onCancel: store.dismissSheetCancel
+            )
+        }
     }
 }

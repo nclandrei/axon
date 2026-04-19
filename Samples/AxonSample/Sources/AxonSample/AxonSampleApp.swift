@@ -24,6 +24,12 @@ struct AxonSampleApp: App {
                     .keyboardShortcut(.delete, modifiers: .command)
                     .disabled(store.selectedNote == nil)
             }
+            CommandGroup(replacing: .windowArrangement) {
+                Button("Close") {
+                    _ = store.attemptClose()
+                }
+                .keyboardShortcut("w", modifiers: .command)
+            }
         }
     }
 }
