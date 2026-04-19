@@ -801,4 +801,31 @@ final class CLIIntegrationTests: XCTestCase {
         let result = runAxon(["--help"])
         XCTAssertTrue(result.stderr.contains("--alert"), "main --help should document --alert")
     }
+
+    // MARK: - assert
+
+    func testAssertWithoutAppFails() {
+        let result = runAxon(["assert"])
+        XCTAssertNotEqual(result.exitCode, 0)
+    }
+
+    func testAssertHelp() {
+        let result = runAxon(["assert", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon assert"))
+        XCTAssertTrue(result.stderr.contains("--exists"))
+    }
+
+    func testAssertAppNotFoundExitsOne() {
+        // App-not-found flows through the shared resolveApp path and exits 1.
+        // (Exit code 2 is reserved for element-lookup errors in a present app; that path
+        // would require a live app + missing element, exercised only in the M2 E2E suite.)
+        let result = runAxon(["assert", "--app", "NonExistentApp_XYZ_999", "--identifier", "x", "--exists"])
+        XCTAssertEqual(result.exitCode, 1, "assert should exit 1 when the app itself isn't running")
+    }
+
+    func testMainHelpListsAssert() {
+        let result = runAxon(["--help"])
+        XCTAssertTrue(result.stderr.contains("assert"))
+    }
 }

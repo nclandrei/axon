@@ -35,6 +35,9 @@ Inspection:
   axon screenshot --app <app> --identifier <id>       Capture specific element
   axon screenshot --app <app> --label <text>          Capture specific element
 
+Assertions:
+  axon assert --app <app> <target> [--exists|--not-exists|--value <s>|--value-matches <r>|--enabled|--disabled|--focused]
+
 Interaction:
   axon click --app <app> <target> [--modifiers m]     Click a UI element
   axon right-click --app <app> <target> [--modifiers m]  Right-click (context menu)
@@ -666,6 +669,38 @@ On timeout:
   {"error": "timeout", "message": "Value did not change within 10s"}
 """
 
+let helpAssert = """
+axon assert - verify UI state with clean exit codes
+
+  axon assert --app <app> <target> [assertions...]
+
+Targeting (choose one or combine --sheet/--alert with --label):
+  --identifier <id>     Accessibility identifier
+  --label <text>        Title or description
+  --path <treepath>     Tree path from 'axon tree'
+  --sheet               Frontmost sheet attached to active window
+  --alert               Frontmost alert
+
+Assertions (all must pass):
+  --exists              Element must be present
+  --not-exists          Element must not be present
+  --value <str>         AXValue must equal str (exact)
+  --value-matches <rx>  AXValue must match regex
+  --enabled             Element must be enabled
+  --disabled            Element must be disabled
+  --focused             Element must be focused
+
+Exit codes:
+  0  all assertions passed
+  1  at least one assertion failed (details on stderr)
+  2  element lookup error (app missing, element missing on --exists=false)
+
+Examples:
+  axon assert --app MyApp --identifier ok --exists --enabled
+  axon assert --app MyApp --label "Save" --value-matches "^Sav"
+  axon assert --app MyApp --sheet --label "Don't Save" --exists
+"""
+
 let helpDoctor = """
 axon doctor - diagnose axon's environment
 
@@ -725,6 +760,7 @@ func showHelp(for command: String?) {
     case "vm-release":  text = helpVMRelease
     case "vm-list":     text = helpVMList
     case "doctor":      text = helpDoctor
+    case "assert":      text = helpAssert
     default:            text = helpMain
     }
     FileHandle.standardError.write(text.data(using: .utf8)!)
@@ -1537,6 +1573,73 @@ case "doctor":
         printJSON(output)
     }
     if !output.ready { exit(1) }
+
+case "assert":
+    checkAccessibilityPermission()
+    let appName = cli.requireOption("app")
+    let (app, axApp) = resolveApp(name: appName)
+
+    if !noActivate { activateApp(app) }
+
+    var spec = AssertionSpec()
+    spec.exists = cli.flag("exists")
+    spec.notExists = cli.flag("not-exists")
+    spec.value = cli.option("value")
+    spec.valueMatches = cli.option("value-matches")
+    spec.enabled = cli.flag("enabled")
+    spec.disabled = cli.flag("disabled")
+    spec.focused = cli.flag("focused")
+
+    let anySpec = spec.exists || spec.notExists || spec.value != nil ||
+                  spec.valueMatches != nil || spec.enabled || spec.disabled || spec.focused
+    if !anySpec {
+        printError(code: "missing_option", message: "Provide at least one assertion: --exists, --not-exists, --value, --value-matches, --enabled, --disabled, --focused")
+        exit(1)
+    }
+
+    // Try to find the element; allow missing if user is asserting --not-exists only.
+    let selector: ElementSelector?
+    if cli.flag("sheet") {
+        selector = .sheet(labelFilter: cli.option("label"))
+    } else if cli.flag("alert") {
+        selector = .alert(labelFilter: cli.option("label"))
+    } else if let id = cli.option("identifier") {
+        selector = .identifier(id)
+    } else if let lbl = cli.option("label") {
+        selector = .label(lbl)
+    } else if let p = cli.option("path") {
+        selector = .path(p)
+    } else {
+        selector = nil
+    }
+
+    let foundOpt: FoundElement? = selector.flatMap { findElement(root: axApp, selector: $0) }
+
+    // If caller asked for anything beyond --not-exists and the element isn't there, exit 2.
+    let requiresElement = spec.exists || spec.value != nil || spec.valueMatches != nil ||
+                          spec.enabled || spec.disabled || spec.focused
+    if requiresElement && foundOpt == nil {
+        let available = collectAvailableIdentifiers(root: axApp)
+        printError(code: "element_not_found", message: "No element found for assertion in \(appName)", available: available)
+        exit(2)
+    }
+
+    let snapshot = foundOpt.map { ElementSnapshot.capture(from: $0.element) }
+    let failures = evaluateAssertions(spec, on: foundOpt?.element, snapshot: snapshot)
+
+    let passed = failures.isEmpty
+    let info = ElementInfo(role: foundOpt?.role, title: foundOpt?.title, identifier: foundOpt?.identifier)
+    let out = AssertOutput(success: true, passed: passed, element: info, failures: failures)
+
+    if passed {
+        printJSON(out)
+    } else {
+        printJSON(out)
+        for f in failures {
+            FileHandle.standardError.write("assert \(f.assertion): expected \(f.expected), actual \(f.actual)\n".data(using: .utf8)!)
+        }
+        exit(1)
+    }
 
 default:
     printError(code: "unknown_command", message: "Unknown command '\(command)'. Run 'axon --help' for usage.")
