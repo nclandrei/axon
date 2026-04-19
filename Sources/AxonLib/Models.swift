@@ -662,18 +662,6 @@ public struct AssertOutput: Codable {
         self.element = element
         self.failures = failures
     }
-
-    public func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(success, forKey: .success)
-        try c.encode(passed, forKey: .passed)
-        try c.encode(element, forKey: .element)
-        if !failures.isEmpty { try c.encode(failures, forKey: .failures) }
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case success, passed, element, failures
-    }
 }
 
 public struct ExistsOutput: Codable {

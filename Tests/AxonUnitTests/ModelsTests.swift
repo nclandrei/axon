@@ -1364,8 +1364,8 @@ final class ModelsTests: XCTestCase {
         let data = try jsonEncoder.encode(out)
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         XCTAssertEqual(json["passed"] as? Bool, true)
-        // failures array omitted when empty
-        XCTAssertNil(json["failures"])
+        let fails = json["failures"] as! [[String: Any]]
+        XCTAssertEqual(fails.count, 0)
     }
 
     func testAssertOutputFailEncodingShowsFailures() throws {
