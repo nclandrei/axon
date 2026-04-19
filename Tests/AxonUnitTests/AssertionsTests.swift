@@ -47,4 +47,54 @@ final class AssertionsTests: XCTestCase {
         XCTAssertEqual(failures.count, 1)
         XCTAssertEqual(failures[0].assertion, "not-exists")
     }
+
+    // MARK: - value / value-matches
+
+    func testValueAssertionPasses() {
+        var spec = AssertionSpec()
+        spec.value = "hello"
+        let failures = evaluateAssertions(spec, on: nil, resolvedValue: "hello")
+        XCTAssertTrue(failures.isEmpty)
+    }
+
+    func testValueAssertionFailsOnMismatch() {
+        var spec = AssertionSpec()
+        spec.value = "hello"
+        let failures = evaluateAssertions(spec, on: nil, resolvedValue: "world")
+        XCTAssertEqual(failures.count, 1)
+        XCTAssertEqual(failures[0].assertion, "value")
+        XCTAssertEqual(failures[0].expected, "hello")
+        XCTAssertEqual(failures[0].actual, "world")
+    }
+
+    func testValueAssertionFailsOnNilValue() {
+        var spec = AssertionSpec()
+        spec.value = "hello"
+        let failures = evaluateAssertions(spec, on: nil, resolvedValue: nil)
+        XCTAssertEqual(failures.count, 1)
+        XCTAssertEqual(failures[0].actual, "<nil>")
+    }
+
+    func testValueMatchesPassesOnRegexMatch() {
+        var spec = AssertionSpec()
+        spec.valueMatches = "^hel+o$"
+        let failures = evaluateAssertions(spec, on: nil, resolvedValue: "hellllo")
+        XCTAssertTrue(failures.isEmpty)
+    }
+
+    func testValueMatchesFailsOnNoMatch() {
+        var spec = AssertionSpec()
+        spec.valueMatches = "^hello$"
+        let failures = evaluateAssertions(spec, on: nil, resolvedValue: "world")
+        XCTAssertEqual(failures.count, 1)
+        XCTAssertEqual(failures[0].assertion, "value-matches")
+    }
+
+    func testValueMatchesFailsOnNilValue() {
+        var spec = AssertionSpec()
+        spec.valueMatches = "x"
+        let failures = evaluateAssertions(spec, on: nil, resolvedValue: nil)
+        XCTAssertEqual(failures.count, 1)
+        XCTAssertEqual(failures[0].actual, "<nil>")
+    }
 }
