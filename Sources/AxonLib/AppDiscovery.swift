@@ -81,17 +81,32 @@ public func resolveApp(name: String) -> (NSRunningApplication, AXUIElement) {
     return (app, appElement(for: app))
 }
 
-/// Resolve an element selector from CLI arguments, printing error and exiting if not found
-public func resolveElement(appElement: AXUIElement, identifier: String?, label: String?, path: String?, appName: String) -> FoundElement {
+/// Resolve an element selector from CLI arguments, printing error and exiting if not found.
+///
+/// Priority: `--sheet`/`--alert` (combined with optional `--label` as a descendant filter),
+/// then `--identifier`, then `--label`, then `--path`. At most one of sheet/alert should be true.
+public func resolveElement(
+    appElement: AXUIElement,
+    identifier: String?,
+    label: String?,
+    path: String?,
+    sheet: Bool = false,
+    alert: Bool = false,
+    appName: String
+) -> FoundElement {
     let selector: ElementSelector
-    if let id = identifier {
+    if sheet {
+        selector = .sheet(labelFilter: label)
+    } else if alert {
+        selector = .alert(labelFilter: label)
+    } else if let id = identifier {
         selector = .identifier(id)
     } else if let lbl = label {
         selector = .label(lbl)
     } else if let p = path {
         selector = .path(p)
     } else {
-        printError(code: "missing_selector", message: "Provide --identifier, --label, or --path to select an element")
+        printError(code: "missing_selector", message: "Provide --identifier, --label, --path, --sheet, or --alert to select an element")
         exit(1)
     }
 
@@ -102,8 +117,8 @@ public func resolveElement(appElement: AXUIElement, identifier: String?, label: 
         case .identifier(let v): selectorDesc = "identifier '\(v)'"
         case .label(let v): selectorDesc = "label '\(v)'"
         case .path(let v): selectorDesc = "path '\(v)'"
-        case .sheet(let f): selectorDesc = f.map { "sheet with label '\($0)'" } ?? "sheet"
-        case .alert(let f): selectorDesc = f.map { "alert with label '\($0)'" } ?? "alert"
+        case .sheet(let f): selectorDesc = f.map { "sheet with label '\($0)'" } ?? "frontmost sheet"
+        case .alert(let f): selectorDesc = f.map { "alert with label '\($0)'" } ?? "frontmost alert"
         }
         printError(
             code: "element_not_found",
