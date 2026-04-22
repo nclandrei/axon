@@ -1,0 +1,168 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, sign, notarize, publish
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump patch version
+        id: version
+        run: |
+          current="$(cat VERSION | tr -d '[:space:]')"
+          IFS=. read -r major minor patch <<< "$current"
+          next="${major}.${minor}.$((patch + 1))"
+          echo "$next" > VERSION
+          echo "version=$next"   >> "$GITHUB_OUTPUT"
+          echo "tag=v$next"      >> "$GITHUB_OUTPUT"
+          echo "tarball=axon-${next}-macos-universal.tar.gz" >> "$GITHUB_OUTPUT"
+
+      - name: Import signing certificate
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/axon-signing.keychain-db"
+          echo -n "$APPLE_CERTIFICATE_P12" | base64 --decode -o "$CERT_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Build universal binary
+        run: |
+          swift build -c release --arch arm64 --arch x86_64
+          file .build/apple/Products/Release/axon || file .build/release/axon
+
+      - name: Locate built binary
+        id: binary
+        run: |
+          if [ -f .build/apple/Products/Release/axon ]; then
+            echo "path=.build/apple/Products/Release/axon" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=.build/release/axon" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Codesign
+        run: |
+          codesign --force --options runtime --timestamp \
+            --sign "$DEVELOPER_ID_APPLICATION" \
+            "${{ steps.binary.outputs.path }}"
+          codesign --verify --verbose "${{ steps.binary.outputs.path }}"
+
+      - name: Package tarball
+        id: package
+        run: |
+          staging="$RUNNER_TEMP/stage"
+          mkdir -p "$staging"
+          cp "${{ steps.binary.outputs.path }}" "$staging/axon"
+          tar -czf "${{ steps.version.outputs.tarball }}" -C "$staging" axon
+          sha="$(shasum -a 256 "${{ steps.version.outputs.tarball }}" | awk '{print $1}')"
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Notarize
+        run: |
+          xcrun notarytool submit "${{ steps.version.outputs.tarball }}" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id  "$APPLE_TEAM_ID" \
+            --wait
+
+      - name: Commit version bump and tag
+        run: |
+          git add VERSION
+          git commit -m "Release ${{ steps.version.outputs.tag }}"
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin HEAD:main
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            "${{ steps.version.outputs.tarball }}" \
+            --title "${{ steps.version.outputs.tag }}" \
+            --notes "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)."
+
+      - name: Update Homebrew tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          TARBALL: ${{ steps.version.outputs.tarball }}
+          SHA256: ${{ steps.package.outputs.sha256 }}
+        run: |
+          tap_dir="$RUNNER_TEMP/homebrew-tap"
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/nclandrei/homebrew-tap.git" "$tap_dir"
+          mkdir -p "$tap_dir/Formula"
+          cat > "$tap_dir/Formula/axon.rb" <<EOF
+          class Axon < Formula
+            desc "macOS Accessibility CLI for AI agent workflows"
+            homepage "https://github.com/nclandrei/axon"
+            url "https://github.com/nclandrei/axon/releases/download/${TAG}/${TARBALL}"
+            sha256 "${SHA256}"
+            license "MIT"
+            version "${VERSION}"
+
+            depends_on macos: ">= :sonoma"
+
+            def install
+              bin.install "axon"
+            end
+
+            test do
+              assert_match "axon", shell_output("#{bin}/axon --help")
+            end
+          end
+          EOF
+          cd "$tap_dir"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/axon.rb
+          git commit -m "axon ${VERSION}"
+          git push origin HEAD
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          if [ -n "${KEYCHAIN_PATH:-}" ] && [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH" || true
+          fi
