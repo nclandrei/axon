@@ -75,6 +75,10 @@ jobs:
           set -euo pipefail
           swift build -c release
           swift test --filter AxonUnitTests
+          # CI runners boot with an empty pasteboard; testClipboardGet_exits0
+          # asserts a "text" key in the JSON output, which axon omits when the
+          # pasteboard has no content. Seed it so the test can pass.
+          printf 'ci-bootstrap' | pbcopy || true
           swift test --filter AxonIntegrationTests
 
       - name: Create and push release tag
