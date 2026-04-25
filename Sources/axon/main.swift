@@ -1557,6 +1557,16 @@ case "wait-for-value":
         exit(1)
     }
 
+case "vm-bake":
+    guard let source = cli.option("source"), let name = cli.option("name") else {
+        printError(code: "missing_option", message: "Provide --source <image> and --name <new-base>")
+        exit(1)
+    }
+    // Implementation lands in the next commit.
+    _ = (source, name)
+    printError(code: "vm_bake_failed", message: "vm-bake not yet implemented")
+    exit(1)
+
 case "vm-acquire":
     let base = cli.requireOption("base")
     let headless = cli.flag("headless")

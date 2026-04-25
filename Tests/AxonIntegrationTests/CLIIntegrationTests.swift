@@ -729,6 +729,22 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("axon vm-bake"))
     }
 
+    func testVMBakeMissingSource_exits1() {
+        let result = runAxon(["vm-bake", "--name", "axon-myapp-base"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json, "stderr should be valid JSON")
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
+    func testVMBakeMissingName_exits1() {
+        let result = runAxon(["vm-bake", "--source", "sonoma-base"])
+        XCTAssertEqual(result.exitCode, 1)
+        let json = parseJSON(result.stderr)
+        XCTAssertNotNil(json, "stderr should be valid JSON")
+        XCTAssertEqual(json?["error"] as? String, "missing_option")
+    }
+
     // MARK: - launch --help mentions accessory/menu bar apps
 
     func testLaunchHelpMentionsAccessoryApps() {
