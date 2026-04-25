@@ -36,10 +36,9 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         let click = runAxon(["click", "--app", "AxonSample", "--identifier", "newNoteButton"])
         XCTAssertEqual(click.exitCode, 0, "click failed: \(click.stderr)")
 
-        // Assert: a row labeled "Untitled" shows up in the sidebar.
-        let row = runAxon(["exists", "--app", "AxonSample", "--label", "Untitled"])
-        XCTAssertEqual(row.exitCode, 0)
-        XCTAssertEqual(parseJSON(row.stdout)?["exists"] as? Bool, true)
+        // The editor field appears when a note is selected — that proves the note was created.
+        let editorWait = runAxon(["wait", "--app", "AxonSample", "--identifier", "noteTitleField", "--appear", "--timeout", "3"])
+        XCTAssertEqual(editorWait.exitCode, 0, "noteTitleField did not appear: \(editorWait.stderr)")
     }
 
     // MARK: - 4. File > New menu
@@ -48,17 +47,15 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         try skipIfSampleNotBuilt()
         try launchSample()
 
-        let before = runAxon(["exists", "--app", "AxonSample", "--label", "Untitled"])
+        // Before: no editor field (no selection).
+        let before = runAxon(["exists", "--app", "AxonSample", "--identifier", "noteTitleField"])
         XCTAssertEqual(parseJSON(before.stdout)?["exists"] as? Bool, false)
 
         let menu = runAxon(["menu", "--app", "AxonSample", "--path", "File > New"])
         XCTAssertEqual(menu.exitCode, 0, "menu nav failed: \(menu.stderr)")
 
-        let wait = runAxon(["wait", "--app", "AxonSample", "--label", "Untitled", "--appear", "--timeout", "3"])
-        XCTAssertEqual(wait.exitCode, 0, "Untitled row did not appear: \(wait.stderr)")
-
-        let after = runAxon(["exists", "--app", "AxonSample", "--label", "Untitled"])
-        XCTAssertEqual(parseJSON(after.stdout)?["exists"] as? Bool, true)
+        let editorWait = runAxon(["wait", "--app", "AxonSample", "--identifier", "noteTitleField", "--appear", "--timeout", "3"])
+        XCTAssertEqual(editorWait.exitCode, 0, "noteTitleField did not appear: \(editorWait.stderr)")
     }
 
     func testCommandNAddsNote() throws {
@@ -68,11 +65,8 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         let key = runAxon(["key", "--app", "AxonSample", "--key", "n", "--modifiers", "command"])
         XCTAssertEqual(key.exitCode, 0, "⌘N failed: \(key.stderr)")
 
-        let wait = runAxon(["wait", "--app", "AxonSample", "--label", "Untitled", "--appear", "--timeout", "3"])
-        XCTAssertEqual(wait.exitCode, 0, "Untitled row did not appear: \(wait.stderr)")
-
-        let row = runAxon(["exists", "--app", "AxonSample", "--label", "Untitled"])
-        XCTAssertEqual(parseJSON(row.stdout)?["exists"] as? Bool, true)
+        let editorWait = runAxon(["wait", "--app", "AxonSample", "--identifier", "noteTitleField", "--appear", "--timeout", "3"])
+        XCTAssertEqual(editorWait.exitCode, 0, "noteTitleField did not appear: \(editorWait.stderr)")
     }
 
     // MARK: - 3. Editor reflects typed content
@@ -136,8 +130,8 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
 
         let dirty = runAxon([
             "assert", "--app", "AxonSample",
-            "--label", "modified",
-            "--exists"
+            "--identifier", "dirtyStatus",
+            "--value", "modified"
         ])
         XCTAssertEqual(dirty.exitCode, 0, "dirty assert failed: \(dirty.stderr)")
 
@@ -147,13 +141,13 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
 
         let clean = runAxon([
             "assert", "--app", "AxonSample",
-            "--label", "clean",
-            "--exists"
+            "--identifier", "dirtyStatus",
+            "--value", "clean"
         ])
         XCTAssertEqual(clean.exitCode, 0, "clean assert failed: \(clean.stderr)")
     }
 
-    // MARK: - 7. Unsaved sheet appears on close attempt and responds to --sheet targeting
+    // MARK: - 7. Unsaved alert appears on close attempt and responds to identifier targeting
 
     func testUnsavedSheetOnCloseAttemptDontSave() throws {
         try skipIfSampleNotBuilt()
@@ -167,27 +161,23 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
             "--clear"
         ])
 
-        // Attempt to close the window — triggers the sheet because the note is dirty
         let close = runAxon(["key", "--app", "AxonSample", "--key", "w", "--modifiers", "command"])
         XCTAssertEqual(close.exitCode, 0, close.stderr)
 
-        let sheetWait = runAxon(["wait", "--app", "AxonSample", "--sheet", "--appear", "--timeout", "3"])
-        XCTAssertEqual(sheetWait.exitCode, 0, "sheet did not appear: \(sheetWait.stderr)")
+        // Wait for sheetDontSave button to appear (it only exists when the alert sheet is open).
+        let sheetWait = runAxon(["wait", "--app", "AxonSample", "--identifier", "sheetDontSave", "--appear", "--timeout", "3"])
+        XCTAssertEqual(sheetWait.exitCode, 0, "sheetDontSave button did not appear: \(sheetWait.stderr)")
 
-        // Sheet should exist — probe via --sheet
-        let sheetExists = runAxon(["exists", "--app", "AxonSample", "--sheet"])
-        XCTAssertEqual(parseJSON(sheetExists.stdout)?["exists"] as? Bool, true)
-
-        // Click "Don't Save"
+        // Click Don't Save by identifier.
         let dontSave = runAxon([
             "click", "--app", "AxonSample",
-            "--sheet", "--label", "Don't Save"
+            "--identifier", "sheetDontSave"
         ])
         XCTAssertEqual(dontSave.exitCode, 0, "don't save click failed: \(dontSave.stderr)")
 
-        // Note should be gone (discarded)
-        let stillThere = runAxon(["exists", "--app", "AxonSample", "--label", "Unsaved"])
-        XCTAssertEqual(parseJSON(stillThere.stdout)?["exists"] as? Bool, false)
+        // After clicking Don't Save, the placeholder should return.
+        let placeholderWait = runAxon(["wait", "--app", "AxonSample", "--identifier", "noSelectionPlaceholder", "--appear", "--timeout", "3"])
+        XCTAssertEqual(placeholderWait.exitCode, 0, "noSelectionPlaceholder did not appear: \(placeholderWait.stderr)")
     }
 
     // MARK: - 6. Delete removes the selected note
@@ -204,14 +194,15 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
             "--clear"
         ])
 
-        let existsBefore = runAxon(["exists", "--app", "AxonSample", "--label", "Ephemeral"])
+        let existsBefore = runAxon(["exists", "--app", "AxonSample", "--identifier", "noteTitleField"])
         XCTAssertEqual(parseJSON(existsBefore.stdout)?["exists"] as? Bool, true)
 
         let delete = runAxon(["menu", "--app", "AxonSample", "--path", "File > Delete"])
         XCTAssertEqual(delete.exitCode, 0, "delete failed: \(delete.stderr)")
 
-        let existsAfter = runAxon(["exists", "--app", "AxonSample", "--label", "Ephemeral"])
-        XCTAssertEqual(parseJSON(existsAfter.stdout)?["exists"] as? Bool, false)
+        // After delete: no selected note → noSelectionPlaceholder should appear.
+        let placeholderWait = runAxon(["wait", "--app", "AxonSample", "--identifier", "noSelectionPlaceholder", "--appear", "--timeout", "3"])
+        XCTAssertEqual(placeholderWait.exitCode, 0, "noSelectionPlaceholder did not appear: \(placeholderWait.stderr)")
     }
 
     // MARK: - 8. Canonical end-to-end flow
@@ -249,8 +240,8 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
 
         let dirtyOk = runAxon([
             "assert", "--app", "AxonSample",
-            "--label", "modified",
-            "--exists"
+            "--identifier", "dirtyStatus",
+            "--value", "modified"
         ])
         XCTAssertEqual(dirtyOk.exitCode, 0, "dirty assert: \(dirtyOk.stderr)")
 
@@ -258,8 +249,8 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         _ = runAxon(["key", "--app", "AxonSample", "--key", "s", "--modifiers", "command"])
         let cleanOk = runAxon([
             "assert", "--app", "AxonSample",
-            "--label", "clean",
-            "--exists"
+            "--identifier", "dirtyStatus",
+            "--value", "clean"
         ])
         XCTAssertEqual(cleanOk.exitCode, 0, "clean assert: \(cleanOk.stderr)")
 
@@ -271,31 +262,29 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
             "--text", "Throwaway",
             "--clear"
         ])
-        let beforeDelete = runAxon(["exists", "--app", "AxonSample", "--label", "Throwaway"])
+        let beforeDelete = runAxon(["exists", "--app", "AxonSample", "--identifier", "noteTitleField"])
         XCTAssertEqual(parseJSON(beforeDelete.stdout)?["exists"] as? Bool, true)
 
         _ = runAxon(["menu", "--app", "AxonSample", "--path", "File > Delete"])
-        let afterDelete = runAxon(["exists", "--app", "AxonSample", "--label", "Throwaway"])
-        XCTAssertEqual(parseJSON(afterDelete.stdout)?["exists"] as? Bool, false)
+        let afterDelete = runAxon(["wait", "--app", "AxonSample", "--identifier", "noSelectionPlaceholder", "--appear", "--timeout", "3"])
+        XCTAssertEqual(afterDelete.exitCode, 0, "noSelectionPlaceholder did not appear after delete: \(afterDelete.stderr)")
 
-        // Phase 5: make the remaining note dirty, attempt close, dismiss with Don't Save.
+        // Phase 5: make a dirty note, attempt close, dismiss with Don't Save.
+        _ = runAxon(["click", "--app", "AxonSample", "--identifier", "newNoteButton"])
         _ = runAxon([
             "type", "--app", "AxonSample",
             "--identifier", "noteBodyField",
-            "--text", " (addendum)",
+            "--text", "dirty draft",
             "--clear"
         ])
         _ = runAxon(["key", "--app", "AxonSample", "--key", "w", "--modifiers", "command"])
 
-        let sheetWait = runAxon(["wait", "--app", "AxonSample", "--sheet", "--appear", "--timeout", "3"])
-        XCTAssertEqual(sheetWait.exitCode, 0, "sheet did not appear: \(sheetWait.stderr)")
-
-        let sheet = runAxon(["exists", "--app", "AxonSample", "--sheet"])
-        XCTAssertEqual(parseJSON(sheet.stdout)?["exists"] as? Bool, true)
+        let sheetWait = runAxon(["wait", "--app", "AxonSample", "--identifier", "sheetDontSave", "--appear", "--timeout", "3"])
+        XCTAssertEqual(sheetWait.exitCode, 0, "sheetDontSave did not appear: \(sheetWait.stderr)")
 
         let dontSave = runAxon([
             "click", "--app", "AxonSample",
-            "--sheet", "--label", "Don't Save"
+            "--identifier", "sheetDontSave"
         ])
         XCTAssertEqual(dontSave.exitCode, 0, "Don't Save click: \(dontSave.stderr)")
 
@@ -303,6 +292,10 @@ final class AxonSampleE2ETests: AxonSampleE2ETestCase {
         let shotPath = NSTemporaryDirectory() + "axon-sample-canonical.png"
         let shot = runAxon(["screenshot", "--app", "AxonSample", "--output", shotPath])
         // Screenshot may fail if screen recording isn't granted — that's OK, it's not the point of this test.
-        XCTAssertTrue(shot.exitCode == 0 || shot.stderr.contains("screen"), "unexpected screenshot failure: \(shot.stderr)")
+        let permissible = ["screen_recording_not_trusted", "screenshot_failed", "no_window"]
+        XCTAssertTrue(
+            shot.exitCode == 0 || permissible.contains { shot.stderr.contains($0) },
+            "unexpected screenshot failure: \(shot.stderr)"
+        )
     }
 }

@@ -10,6 +10,7 @@ struct ContentView: View {
                     Button(action: { store.createNote() }) {
                         Label("New Note", systemImage: "plus")
                     }
+                    .keyboardShortcut("n", modifiers: .command)
                     .accessibilityIdentifier("newNoteButton")
                     .accessibilityLabel("New Note")
                     Spacer()
@@ -32,7 +33,8 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .accessibilityIdentifier("dirtyStatus")
-                            .accessibilityLabel(note.isDirty ? "modified" : "clean")
+                            .accessibilityLabel("Save state")
+                            .accessibilityValue(note.isDirty ? "modified" : "clean")
                         Spacer()
                     }
                     .padding(.horizontal, 16)
@@ -44,12 +46,15 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 640, minHeight: 400)
-        .sheet(isPresented: $store.showUnsavedSheet) {
-            UnsavedSheet(
-                onSave: store.dismissSheetSave,
-                onDontSave: store.dismissSheetDontSave,
-                onCancel: store.dismissSheetCancel
-            )
+        .alert("Unsaved changes", isPresented: $store.showUnsavedSheet) {
+            Button("Cancel", role: .cancel) { store.dismissSheetCancel() }
+                .accessibilityIdentifier("sheetCancel")
+            Button("Don't Save", role: .destructive) { store.dismissSheetDontSave() }
+                .accessibilityIdentifier("sheetDontSave")
+            Button("Save") { store.dismissSheetSave() }
+                .accessibilityIdentifier("sheetSave")
+        } message: {
+            Text("Do you want to save before closing?")
         }
     }
 }

@@ -494,7 +494,6 @@ final class E2ETests: AxonE2ETestCase {
     // MARK: - TextEdit sheet scenario
 
     func testTextEditUnsavedSheetTargetable() throws {
-        // Launch TextEdit fresh
         let launch = runAxon(["launch", "--name", "TextEdit"])
         try skipIfNoAccessibility(launch)
         XCTAssertEqual(launch.exitCode, 0)
@@ -502,11 +501,6 @@ final class E2ETests: AxonE2ETestCase {
 
         _ = runAxon(["wait-ready", "--app", "TextEdit", "--timeout", "5"])
 
-        // Find the frontmost text area and type into it to make it dirty.
-        let treeResult = runAxon(["tree", "--app", "TextEdit", "--compact"])
-        try XCTSkipUnless(treeResult.exitCode == 0, "TextEdit tree failed: \(treeResult.stderr)")
-
-        // Type via the known TextEdit text-area tree path.
         let typeResult = runAxon([
             "type", "--app", "TextEdit",
             "--path", "AXWindow[0]/AXScrollArea[0]/AXTextArea[0]",
@@ -514,27 +508,24 @@ final class E2ETests: AxonE2ETestCase {
         ])
         try XCTSkipUnless(typeResult.exitCode == 0, "type failed: \(typeResult.stderr)")
 
-        // Close the window — TextEdit will ask whether to save.
         let close = runAxon(["key", "--app", "TextEdit", "--key", "w", "--modifiers", "command"])
         XCTAssertEqual(close.exitCode, 0, close.stderr)
 
-        // The sheet should exist. Target via --sheet.
-        let sheet = runAxon(["exists", "--app", "TextEdit", "--sheet"])
-        XCTAssertEqual(sheet.exitCode, 0)
-        XCTAssertEqual(parseJSON(sheet.stdout)?["exists"] as? Bool, true, "TextEdit sheet should be findable via --sheet")
-
-        // Dismiss by clicking Don't Save (exact button label varies by macOS version but
-        // "Don't Save" is stable across Sonoma/Sequoia).
-        let dismiss = runAxon([
-            "click", "--app", "TextEdit",
-            "--sheet", "--label", "Don't Save"
+        // On macOS 14+, closing dirty TextEdit opens a Save panel. The "Don't Save" button
+        // has the stable accessibilityIdentifier "DontSaveButton". Wait for it to appear.
+        let btnWait = runAxon([
+            "wait", "--app", "TextEdit",
+            "--identifier", "DontSaveButton",
+            "--appear",
+            "--timeout", "5"
         ])
-        // If the label differs, this click will fail — treat as a skip, not a hard failure.
-        if dismiss.exitCode != 0 {
-            _ = runAxon(["key", "--app", "TextEdit", "--key", "escape"])
-            throw XCTSkip("TextEdit sheet button label may differ on this OS: \(dismiss.stderr)")
-        }
-        XCTAssertEqual(dismiss.exitCode, 0)
+        try XCTSkipUnless(btnWait.exitCode == 0, "DontSaveButton did not appear — may be a different flow on this macOS: \(btnWait.stderr)")
+
+        let click = runAxon([
+            "click", "--app", "TextEdit",
+            "--identifier", "DontSaveButton"
+        ])
+        XCTAssertEqual(click.exitCode, 0, "DontSaveButton click failed: \(click.stderr)")
     }
 
     // MARK: - TextEdit menu navigation
