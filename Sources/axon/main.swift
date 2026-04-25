@@ -1562,10 +1562,18 @@ case "vm-bake":
         printError(code: "missing_option", message: "Provide --source <image> and --name <new-base>")
         exit(1)
     }
-    // Implementation lands in the next commit.
-    _ = (source, name)
-    printError(code: "vm_bake_failed", message: "vm-bake not yet implemented")
-    exit(1)
+
+    switch vmBake(source: source, name: name) {
+    case .success(let baked):
+        let out = VMBakeOutput(success: true, name: baked.name, source: baked.source)
+        emit(out, plain: [
+            ("name", baked.name),
+            ("source", baked.source),
+        ])
+    case .failure(let err):
+        printError(code: "vm_bake_failed", message: err.description)
+        exit(1)
+    }
 
 case "vm-acquire":
     let base = cli.requireOption("base")

@@ -1108,6 +1108,26 @@ final class ModelsTests: XCTestCase {
         XCTAssertNil(decoded.ip)
     }
 
+    // MARK: - VMBakeOutput
+
+    func testVMBakeOutputEncoding() {
+        let output = VMBakeOutput(success: true, name: "axon-textedit-base", source: "sonoma-base")
+        let data = try! jsonEncoder.encode(output)
+        let json = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"success\" : true"))
+        XCTAssertTrue(json.contains("\"name\" : \"axon-textedit-base\""))
+        XCTAssertTrue(json.contains("\"source\" : \"sonoma-base\""))
+    }
+
+    func testVMBakeOutputRoundTrip() {
+        let output = VMBakeOutput(success: true, name: "axon-myapp-base", source: "ghcr.io/cirruslabs/macos-sonoma-base:latest")
+        let data = try! jsonEncoder.encode(output)
+        let decoded = try! JSONDecoder().decode(VMBakeOutput.self, from: data)
+        XCTAssertTrue(decoded.success)
+        XCTAssertEqual(decoded.name, "axon-myapp-base")
+        XCTAssertEqual(decoded.source, "ghcr.io/cirruslabs/macos-sonoma-base:latest")
+    }
+
     // MARK: - VMReleaseOutput
 
     func testVMReleaseOutputEncoding() {

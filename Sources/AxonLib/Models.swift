@@ -556,6 +556,18 @@ public struct VMReleaseOutput: Codable {
     }
 }
 
+public struct VMBakeOutput: Codable {
+    public let success: Bool
+    public let name: String
+    public let source: String
+
+    public init(success: Bool, name: String, source: String) {
+        self.success = success
+        self.name = name
+        self.source = source
+    }
+}
+
 public struct VMReleaseAllOutput: Codable {
     public let success: Bool
     public let released: Int
