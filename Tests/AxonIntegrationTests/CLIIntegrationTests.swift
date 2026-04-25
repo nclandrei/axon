@@ -712,6 +712,23 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertNotNil(json?["vms"] as? [Any], "JSON should have 'vms' array")
     }
 
+    // MARK: - vm-bake
+
+    func testVMBakeHelp_exits0() {
+        let result = runAxon(["vm-bake", "--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.stderr.contains("axon vm-bake"),
+            "stderr should contain vm-bake-specific help"
+        )
+    }
+
+    func testHelpVMBake_exits0() {
+        let result = runAxon(["help", "vm-bake"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("axon vm-bake"))
+    }
+
     // MARK: - launch --help mentions accessory/menu bar apps
 
     func testLaunchHelpMentionsAccessoryApps() {
@@ -754,6 +771,10 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertTrue(
             result.stderr.contains("vm-list"),
             "Main help should advertise vm-list"
+        )
+        XCTAssertTrue(
+            result.stderr.contains("vm-bake"),
+            "Main help should advertise vm-bake"
         )
     }
 

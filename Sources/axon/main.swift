@@ -69,6 +69,7 @@ Clipboard:
   axon clipboard --set --text <string>               Write text to clipboard
 
 VM management (Tart):
+  axon vm-bake --source <image> --name <new-base>    Clone a stock image into a per-app base
   axon vm-acquire --base <image> [--headless] [--timeout <s>]   Clone+boot ephemeral VM
   axon vm-release --name <vm>                        Stop and delete a VM
   axon vm-release --all                              Stop and delete all axon VMs
@@ -586,6 +587,33 @@ Output:
   {"success": true, "previousValue": "50", "newValue": "75"}
 """
 
+let helpVMBake = """
+axon vm-bake - Clone a stock Tart image into a reusable per-app base
+
+  --source <image>    Stock image to clone (required, e.g. "sonoma-base"
+                      or "ghcr.io/cirruslabs/macos-sonoma-base:latest")
+  --name <new-base>   Name to give the new base (required)
+
+Creates a persistent Tart VM by cloning <source>. After it returns, run the new
+VM yourself ('tart run <new-base>'), install your app, grant accessibility and
+screen-recording permissions, then stop the VM ('tart stop <new-base>'). The
+VM is now a sealed per-app base: 'axon vm-acquire --base <new-base>' clones it
+in milliseconds via APFS COW, skipping the app/permission setup every time.
+
+This decouples the slow part (download a stock image, install an app, grant
+permissions) from the fast part (cloning a ready-to-use VM per parallel run).
+Three features in parallel = three independent ephemeral clones of one base.
+
+  axon vm-bake --source ghcr.io/cirruslabs/macos-sonoma-base:latest --name axon-textedit-base
+  axon vm-bake --source sonoma-base --name axon-myapp-base
+
+Output:
+  {"success": true, "name": "axon-textedit-base", "source": "sonoma-base"}
+
+On failure (tart missing, target name already exists, clone error):
+  {"error": "vm_bake_failed", "message": "..."}
+"""
+
 let helpVMAcquire = """
 axon vm-acquire - Clone, boot, and register an ephemeral macOS VM via Tart
 
@@ -798,6 +826,7 @@ func showHelp(for command: String?) {
     case "clipboard":  text = helpClipboard
     case "wait-ready":     text = helpWaitReady
     case "wait-for-value": text = helpWaitForValue
+    case "vm-bake":     text = helpVMBake
     case "vm-acquire":  text = helpVMAcquire
     case "vm-release":  text = helpVMRelease
     case "vm-list":     text = helpVMList
