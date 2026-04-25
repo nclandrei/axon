@@ -159,12 +159,39 @@ axon wait --app MyApp --identifier loadingSpinner --disappear --timeout 30
 axon wait --app MyApp --label "Welcome" --appear
 ```
 
+### vm-bake
+
+Clone a stock Tart image into a reusable per-app base. The new VM is left
+stopped — run it manually (`tart run <name>`), install your app, grant
+accessibility and screen-recording permissions, then `tart stop <name>`. The
+sealed VM is now a per-app template: every later `vm-acquire --base <name>`
+clones it in milliseconds via APFS COW, skipping the slow setup step on every
+parallel run.
+
+```bash
+axon vm-bake --source ghcr.io/cirruslabs/macos-sonoma-base:latest --name axon-textedit-base
+tart run axon-textedit-base    # configure once: install the app, grant AX/SR
+tart stop axon-textedit-base   # seal it
+```
+
+Output:
+
+```json
+{
+  "success": true,
+  "name": "axon-textedit-base",
+  "source": "ghcr.io/cirruslabs/macos-sonoma-base:latest"
+}
+```
+
 ### vm-acquire
 
 Clone, boot, and register an ephemeral macOS VM via [Tart](https://github.com/cirruslabs/tart).
 The clone is instant (APFS COW), and the command waits for the VM to acquire an
 IP before returning. Registers the VM in `~/.axon/vms.json` so `vm-list` and
 `vm-release --all` can find it.
+
+Pass either a stock image or a base produced by `vm-bake`.
 
 ```bash
 axon vm-acquire --base sonoma-base --headless
@@ -239,7 +266,7 @@ Silicon. axon ships built-in lifecycle commands so you don't need to wrap
 `tart` yourself:
 
 ```bash
-# 1. One-time: pull a base image with Tart
+# 1. One-time: pull a stock base with Tart
 tart pull ghcr.io/cirruslabs/macos-sonoma-base:latest
 
 # 2. Acquire an ephemeral clone (instant via APFS COW, waits for IP)
@@ -256,6 +283,29 @@ axon vm-release --all
 ```
 
 The registry lives at `~/.axon/vms.json`.
+
+### Per-app base images for parallel work
+
+Pulling and booting a stock VM is slow; installing your app and granting AX
+permissions inside it is slower. Do that work once with `vm-bake`, then clone
+the sealed result every run:
+
+```bash
+# 1. One-time per app: bake a per-app base
+axon vm-bake --source ghcr.io/cirruslabs/macos-sonoma-base:latest --name axon-myapp-base
+tart run  axon-myapp-base    # install your app, grant AX + screen recording
+tart stop axon-myapp-base    # seal it
+
+# 2. Per run: clone the sealed base. Each clone is independent.
+axon vm-acquire --base axon-myapp-base --headless
+axon vm-acquire --base axon-myapp-base --headless
+axon vm-acquire --base axon-myapp-base --headless
+```
+
+Three parallel `vm-acquire` calls give you three isolated VMs (separate
+filesystems, AX trees, windows) that all skip the install-and-permission step.
+Working on multiple apps? Bake one base per app (`axon-myapp-base`,
+`axon-otherapp-base`, …) and acquire from whichever you need.
 
 ## Architecture
 
