@@ -1,6 +1,6 @@
 import Foundation
 
-public let axonVersion = "0.1.0"
+public let axonVersion = "0.2.0"
 
 public enum OutputFormat: String {
     case json
