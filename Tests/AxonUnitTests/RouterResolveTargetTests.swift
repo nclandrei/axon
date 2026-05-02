@@ -86,11 +86,16 @@ final class RouterResolveTargetTests: XCTestCase {
 
 // MARK: - Stub acquirer used by all RouterResolveTargetTests
 
-struct StubAcquirer: VMAcquirer {
+final class StubAcquirer: VMAcquirer {
     var entryToReturn: VMEntry = VMEntry(name: "axon-stub", base: "b", created: Date(), ip: "10.0.0.99")
-    var calls: [(base: String, headless: Bool, timeout: Int)] = []
+    private(set) var calls: [(base: String, headless: Bool, timeout: Int)] = []
+
+    init(entryToReturn: VMEntry? = nil) {
+        if let e = entryToReturn { self.entryToReturn = e }
+    }
 
     func acquire(base: String, headless: Bool, timeout: Int) -> Result<VMEntry, VMError> {
+        calls.append((base, headless, timeout))
         return .success(entryToReturn)
     }
 }
