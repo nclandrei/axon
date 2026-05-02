@@ -46,6 +46,7 @@ public enum RouterError: Error, Equatable {
     case vmNotFound(name: String)
     case vmNotReady(name: String)
     case sshFailed(stderr: String, exitCode: Int32)
+    case vmAcquireFailed(message: String)
 }
 
 // MARK: - Bundle ID Resolver (test seam)
@@ -131,6 +132,10 @@ public func resolveTarget(
     if let running = registry.vms.first(where: { $0.base == base.name && $0.ip != nil }) {
         return .remote(running)
     }
-    // (acquire path — added in next task)
-    throw RouterError.noBaseRegistered(bundleID: bundleID)
+    switch acquirer.acquire(base: base.name, headless: true, timeout: 60) {
+    case .success(let entry):
+        return .remote(entry)
+    case .failure(let err):
+        throw RouterError.vmAcquireFailed(message: err.description)
+    }
 }

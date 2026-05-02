@@ -157,6 +157,53 @@ final class RouterResolveTargetTests: XCTestCase {
         )
         XCTAssertEqual(target, .remote(runningVM))
     }
+
+    // --- acquire-on-miss ---
+
+    func testNoRunningVMForBaseTriggersAcquire() throws {
+        let base = BaseEntry(
+            name: "axon-cicero-base", source: "s",
+            bundleID: "com.andreinicolas.Cicero", displayName: "Cicero", baked: Date()
+        )
+        // No matching VMs in registry.
+        let registry = makeRegistry(bases: [base])
+        let acquired = VMEntry(name: "axon-fresh", base: "axon-cicero-base", created: Date(), ip: "10.0.0.42")
+        let target = try resolveTarget(
+            argv: ["--app", "Cicero"],
+            command: "click",
+            registry: registry,
+            env: [:],
+            acquirer: StubAcquirer(entryToReturn: acquired),
+            bundleIDResolver: StubBundleIDResolver()
+        )
+        XCTAssertEqual(target, .remote(acquired))
+    }
+
+    func testAcquireFailureSurfacesAsRouterError() {
+        let base = BaseEntry(
+            name: "axon-x", source: "s", bundleID: "com.x.A", displayName: nil, baked: Date()
+        )
+        let registry = makeRegistry(bases: [base])
+        struct FailingAcquirer: VMAcquirer {
+            func acquire(base: String, headless: Bool, timeout: Int) -> Result<VMEntry, VMError> {
+                .failure(VMError("clone failed: disk full"))
+            }
+        }
+        XCTAssertThrowsError(try resolveTarget(
+            argv: ["--bundle-id", "com.x.A"],
+            command: "click",
+            registry: registry,
+            env: [:],
+            acquirer: FailingAcquirer(),
+            bundleIDResolver: StubBundleIDResolver()
+        )) { err in
+            if case .vmAcquireFailed(let msg) = err as? RouterError {
+                XCTAssertTrue(msg.contains("clone failed"))
+            } else {
+                XCTFail("Expected .vmAcquireFailed, got \(err)")
+            }
+        }
+    }
 }
 
 // MARK: - Stub acquirer used by all RouterResolveTargetTests
