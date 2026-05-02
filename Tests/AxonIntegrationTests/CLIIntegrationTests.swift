@@ -987,6 +987,17 @@ final class CLIIntegrationTests: XCTestCase {
         )
     }
 
+    func testHelpMentionsLocalAndVMFlags() {
+        let r = runAxon(["--help"])
+        XCTAssertTrue(r.stderr.contains("--local"), "Top-level --help should mention --local")
+        XCTAssertTrue(r.stderr.contains("AXON_TARGET"), "Top-level --help should mention AXON_TARGET env")
+    }
+
+    func testVMBakeHelpMentionsForBundle() {
+        let r = runAxon(["vm-bake", "--help"])
+        XCTAssertTrue(r.stderr.contains("--for-bundle"), "vm-bake --help should mention --for-bundle")
+    }
+
     // MARK: - vm-bake --for-bundle
 
     func testVMBakeForBundleWritesBasesEntry() throws {

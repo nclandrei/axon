@@ -82,6 +82,17 @@ Waiting:
   axon wait-ready --app <app> [--timeout <s>]        Wait until app's UI is ready
   Add --timeout <seconds> to either (default: 10). Polls every 200ms.
 
+TARGET SELECTION (UI commands)
+  By default, UI-driving commands (click, type, screenshot, …) route to a
+  Tart VM whose base is registered for the target app's bundle ID. To opt
+  back to driving the host:
+    --local                    drive the host machine
+    AXON_TARGET=local          set as env to make --local the default
+    --vm <name>                drive a specific registered VM by name
+    --bundle-id <id>           skip --app → bundle ID lookup
+  If no base is registered for the requested bundle ID, axon exits 2 with
+  error code 'no_base_registered'. Bake one with: axon vm-bake --for-bundle.
+
 Element targeting (<target> in click, type, scroll, wait):
   --identifier <id>   Accessibility identifier (exact match)
   --label <text>      Title or description (exact, then case-insensitive contains)
@@ -590,9 +601,10 @@ Output:
 let helpVMBake = """
 axon vm-bake - Clone a stock Tart image into a reusable per-app base
 
-  --source <image>    Stock image to clone (required, e.g. "sonoma-base"
-                      or "ghcr.io/cirruslabs/macos-sonoma-base:latest")
-  --name <new-base>   Name to give the new base (required)
+  --source <image>      Stock image to clone (required, e.g. "sonoma-base")
+  --name <new-base>     Name for the baked base (required)
+  --for-bundle <id>     Record bundle-ID → this base mapping (recommended)
+  --display-name <n>    Optional display name used by --app lookup
 
 Creates a persistent Tart VM by cloning <source>. After it returns, run the new
 VM yourself ('tart run <new-base>'), install your app, grant accessibility and
