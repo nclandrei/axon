@@ -690,6 +690,20 @@ Output:
   ]}
 """
 
+let helpVMSync = """
+axon vm-sync - rsync a built .app into every running VM registered for a bundle ID
+
+USAGE
+  axon vm-sync --bundle-id <id> --path <local-app>
+
+OPTIONS
+  --bundle-id <id>   Bundle ID of the app whose VMs should receive the build
+  --path <app>       Local path to the .app bundle to sync (e.g. .build/release/MyApp.app)
+
+EXAMPLES
+  axon vm-sync --bundle-id com.x.Cicero --path /Users/me/Cicero.app
+"""
+
 let helpWaitReady = """
 axon wait-ready - wait until an app's UI is ready to be driven
 
@@ -842,6 +856,7 @@ func showHelp(for command: String?) {
     case "vm-acquire":  text = helpVMAcquire
     case "vm-release":  text = helpVMRelease
     case "vm-list":     text = helpVMList
+    case "vm-sync":     text = helpVMSync
     case "doctor":      text = helpDoctor
     case "assert":      text = helpAssert
     case "exists":      text = helpExists
@@ -1752,6 +1767,21 @@ case "vm-list":
         }
     } else {
         printJSON(out)
+    }
+
+case "vm-sync":
+    guard let bundleID = cli.option("bundle-id"), let localPath = cli.option("path") else {
+        printError(code: "missing_option", message: "Provide --bundle-id <id> and --path <local-app>")
+        exit(1)
+    }
+    let registry = loadVMRegistry(at: activeVMRegistryURL())
+    switch vmSync(bundleID: bundleID, localAppPath: localPath, registry: registry, runner: liveRsyncRunner) {
+    case .success(let count):
+        let out = VMSyncOutput(success: true, synced: count)
+        emit(out, plain: [("synced", String(count))])
+    case .failure(let err):
+        printError(code: "vm_sync_failed", message: err.description)
+        exit(1)
     }
 
 case "doctor":

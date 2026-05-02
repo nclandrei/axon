@@ -356,4 +356,71 @@ final class VMManagerTests: XCTestCase {
         let home = NSHomeDirectory()
         XCTAssertEqual(resolved.path, "\(home)/axon-test-tilde-expansion.json")
     }
+
+    // MARK: - vm-sync
+
+    func testVMSyncCallsRunnerForEachMatchingVM() throws {
+        let url = registryURL()
+        try recordBase(name: "axon-cicero-base", source: "s",
+                       bundleID: "com.x.Cicero", displayName: "Cicero", at: url)
+        var registry = loadVMRegistry(at: url)
+        registry.vms.append(VMEntry(name: "axon-r1", base: "axon-cicero-base", created: Date(), ip: "10.0.0.1"))
+        registry.vms.append(VMEntry(name: "axon-r2", base: "axon-cicero-base", created: Date(), ip: "10.0.0.2"))
+        registry.vms.append(VMEntry(name: "axon-other", base: "axon-other-base", created: Date(), ip: "10.0.0.3"))
+        try saveVMRegistry(registry, to: url)
+
+        var calls: [(localPath: String, vmIP: String)] = []
+        let result = vmSync(
+            bundleID: "com.x.Cicero",
+            localAppPath: "/Users/me/Cicero.app",
+            registry: registry,
+            runner: { local, ip in
+                calls.append((local, ip))
+                return .success(())
+            }
+        )
+        switch result {
+        case .success(let count):
+            XCTAssertEqual(count, 2)
+        case .failure(let err):
+            XCTFail("Expected success, got \(err)")
+        }
+        XCTAssertEqual(calls.count, 2)
+        XCTAssertEqual(Set(calls.map { $0.vmIP }), Set(["10.0.0.1", "10.0.0.2"]))
+        XCTAssertTrue(calls.allSatisfy { $0.localPath == "/Users/me/Cicero.app" })
+    }
+
+    func testVMSyncFailsWhenNoBaseRegistered() {
+        let registry = VMRegistry(vms: [], bases: [])
+        let result = vmSync(
+            bundleID: "com.x.Missing",
+            localAppPath: "/Users/me/X.app",
+            registry: registry,
+            runner: { _, _ in .success(()) }
+        )
+        if case .failure(let err) = result {
+            XCTAssertTrue(err.description.contains("com.x.Missing"))
+        } else {
+            XCTFail("Expected failure")
+        }
+    }
+
+    func testVMSyncSucceedsWithZeroVMsWhenBaseRegisteredButNoneRunning() throws {
+        let url = registryURL()
+        try recordBase(name: "axon-cicero-base", source: "s",
+                       bundleID: "com.x.Cicero", displayName: "Cicero", at: url)
+        let registry = loadVMRegistry(at: url)
+        var calls = 0
+        let result = vmSync(
+            bundleID: "com.x.Cicero",
+            localAppPath: "/Users/me/Cicero.app",
+            registry: registry,
+            runner: { _, _ in calls += 1; return .success(()) }
+        )
+        switch result {
+        case .success(let count): XCTAssertEqual(count, 0)
+        case .failure(let err): XCTFail("Expected success, got \(err)")
+        }
+        XCTAssertEqual(calls, 0)
+    }
 }

@@ -1122,4 +1122,10 @@ final class CLIIntegrationTests: XCTestCase {
         process.waitUntilExit()
         XCTAssertEqual(process.terminationStatus, 0, "AXON_TARGET=local should pass through to local list")
     }
+
+    func testVMSyncMissingArgsFails() {
+        let r = runAxon(["vm-sync"])
+        XCTAssertEqual(r.exitCode, 1)
+        XCTAssertTrue(r.stderr.contains("missing_option"))
+    }
 }

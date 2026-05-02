@@ -594,6 +594,15 @@ public struct VMListOutput: Codable {
     }
 }
 
+public struct VMSyncOutput: Codable {
+    public let success: Bool
+    public let synced: Int
+    public init(success: Bool, synced: Int) {
+        self.success = success
+        self.synced = synced
+    }
+}
+
 // MARK: - SetValueOutput
 
 public struct SetValueOutput: Codable {

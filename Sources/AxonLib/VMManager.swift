@@ -353,6 +353,57 @@ public func vmListEntries(at url: URL) -> [VMEntry] {
     loadVMRegistry(at: url).vms
 }
 
+// MARK: - vm-sync
+
+public typealias RsyncRunner = (_ localPath: String, _ vmIP: String) -> Result<Void, VMError>
+
+public func vmSync(
+    bundleID: String,
+    localAppPath: String,
+    registry: VMRegistry,
+    runner: RsyncRunner
+) -> Result<Int, VMError> {
+    guard findBase(byBundleID: bundleID, in: registry) != nil else {
+        return .failure(VMError("No base registered for bundle ID \(bundleID)"))
+    }
+    let matchingVMs = registry.vms.filter { vm in
+        guard let base = findBase(byBundleID: bundleID, in: registry) else { return false }
+        return vm.base == base.name && vm.ip != nil
+    }
+    var synced = 0
+    for vm in matchingVMs {
+        guard let ip = vm.ip else { continue }
+        switch runner(localAppPath, ip) {
+        case .success: synced += 1
+        case .failure(let err): return .failure(err)
+        }
+    }
+    return .success(synced)
+}
+
+/// Production rsync runner. Caller must have SSH keys to admin@<vmIP>.
+public func liveRsyncRunner(localPath: String, vmIP: String) -> Result<Void, VMError> {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/rsync")
+    p.arguments = [
+        "-az", "--delete",
+        "-e", "ssh -o BatchMode=yes -o StrictHostKeyChecking=no",
+        localPath, "admin@\(vmIP):/Applications/",
+    ]
+    let errPipe = Pipe()
+    p.standardError = errPipe
+    p.standardOutput = Pipe()
+    do { try p.run() } catch {
+        return .failure(VMError("Failed to spawn rsync: \(error.localizedDescription)"))
+    }
+    p.waitUntilExit()
+    if p.terminationStatus != 0 {
+        let msg = String(data: errPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "rsync failed"
+        return .failure(VMError(msg))
+    }
+    return .success(())
+}
+
 /// Release all axon-managed VMs. Returns (released, failed) counts.
 public func vmReleaseAll() -> (released: Int, failed: Int) {
     let registry = loadRegistry()
