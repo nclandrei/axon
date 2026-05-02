@@ -210,6 +210,48 @@ final class RouterResolveTargetTests: XCTestCase {
             }
         }
     }
+
+    // --- error surfaces ---
+
+    func testNoBaseRegisteredErrorWhenBundleIDUnknown() {
+        XCTAssertThrowsError(try resolveTarget(
+            argv: ["--bundle-id", "com.never.Heard"],
+            command: "click",
+            registry: makeRegistry(),
+            env: [:],
+            acquirer: StubAcquirer(),
+            bundleIDResolver: StubBundleIDResolver()
+        )) { err in
+            XCTAssertEqual(err as? RouterError, .noBaseRegistered(bundleID: "com.never.Heard"))
+        }
+    }
+
+    func testMissingTargetWhenNoAppNoVMNoLocal() {
+        XCTAssertThrowsError(try resolveTarget(
+            argv: [],
+            command: "list",
+            registry: makeRegistry(),
+            env: [:],
+            acquirer: StubAcquirer(),
+            bundleIDResolver: StubBundleIDResolver()
+        )) { err in
+            XCTAssertEqual(err as? RouterError, .missingTarget(command: "list"))
+        }
+    }
+
+    func testBundleIDNotResolvableWhenAppNotInRegistryAndNotOnHost() {
+        let base = BaseEntry(name: "b", source: "s", bundleID: "com.x.X", displayName: "X", baked: Date())
+        XCTAssertThrowsError(try resolveTarget(
+            argv: ["--app", "Mystery"],
+            command: "click",
+            registry: makeRegistry(bases: [base]),
+            env: [:],
+            acquirer: StubAcquirer(),
+            bundleIDResolver: StubBundleIDResolver() // empty map
+        )) { err in
+            XCTAssertEqual(err as? RouterError, .bundleIDNotResolvable(appName: "Mystery"))
+        }
+    }
 }
 
 // MARK: - Stub acquirer used by all RouterResolveTargetTests
