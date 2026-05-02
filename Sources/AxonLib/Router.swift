@@ -7,6 +7,9 @@ public enum CommandClass: Equatable {
     case alwaysLocal
 }
 
+// Must mirror every UI-driving case handled by main.swift's command switch.
+// When you add a new UI command there, add its name here too — and a test in
+// RouterClassifyTests.testVMRoutableCommands.
 private let vmRoutableCommands: Set<String> = [
     "list", "launch", "tree", "click", "double-click", "right-click",
     "hover", "drag", "type", "key", "scroll", "screenshot", "activate",
