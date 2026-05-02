@@ -215,4 +215,79 @@ final class VMManagerTests: XCTestCase {
         XCTAssertEqual(url.lastPathComponent, "vms.json")
         XCTAssertEqual(url.deletingLastPathComponent().lastPathComponent, ".axon")
     }
+
+    // MARK: - BaseEntry / bases field
+
+    func testBaseEntryRoundTrip() {
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        let base = BaseEntry(
+            name: "axon-cicero-base",
+            source: "ghcr.io/cirruslabs/macos-sequoia-base:latest",
+            bundleID: "com.andreinicolas.Cicero",
+            displayName: "Cicero",
+            baked: date
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try! encoder.encode(base)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try! decoder.decode(BaseEntry.self, from: data)
+        XCTAssertEqual(decoded.name, "axon-cicero-base")
+        XCTAssertEqual(decoded.bundleID, "com.andreinicolas.Cicero")
+        XCTAssertEqual(decoded.displayName, "Cicero")
+        XCTAssertEqual(decoded.baked.timeIntervalSince1970, 1_700_000_000, accuracy: 1.0)
+    }
+
+    func testBaseEntryRoundTripWithoutDisplayName() {
+        let base = BaseEntry(
+            name: "axon-x-base",
+            source: "src",
+            bundleID: "com.example.X",
+            displayName: nil,
+            baked: Date()
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try! encoder.encode(base)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try! decoder.decode(BaseEntry.self, from: data)
+        XCTAssertNil(decoded.displayName)
+    }
+
+    func testVMRegistryWithBasesRoundTrip() throws {
+        let url = registryURL()
+        let reg = VMRegistry(
+            vms: [VMEntry(name: "axon-1", base: "sonoma", created: Date(), ip: "10.0.0.1")],
+            bases: [BaseEntry(
+                name: "axon-cicero-base",
+                source: "src",
+                bundleID: "com.andreinicolas.Cicero",
+                displayName: "Cicero",
+                baked: Date()
+            )]
+        )
+        try saveVMRegistry(reg, to: url)
+        let loaded = loadVMRegistry(at: url)
+        XCTAssertEqual(loaded.vms.count, 1)
+        XCTAssertEqual(loaded.bases.count, 1)
+        XCTAssertEqual(loaded.bases[0].bundleID, "com.andreinicolas.Cicero")
+    }
+
+    func testLoadOldRegistryWithoutBasesField() throws {
+        // A registry written before this feature has no `bases` key.
+        let url = registryURL()
+        let json = """
+        {
+          "vms": [
+            {"name":"axon-old","base":"sonoma","created":"2026-01-01T00:00:00Z","ip":"10.0.0.1"}
+          ]
+        }
+        """
+        try json.data(using: .utf8)!.write(to: url)
+        let loaded = loadVMRegistry(at: url)
+        XCTAssertEqual(loaded.vms.count, 1)
+        XCTAssertEqual(loaded.bases.count, 0, "Missing bases field must decode as []")
+    }
 }

@@ -38,11 +38,43 @@ public struct VMEntry: Codable {
     }
 }
 
+public struct BaseEntry: Codable {
+    public let name: String
+    public let source: String
+    public let bundleID: String
+    public let displayName: String?
+    public let baked: Date
+
+    public init(name: String, source: String, bundleID: String, displayName: String?, baked: Date) {
+        self.name = name
+        self.source = source
+        self.bundleID = bundleID
+        self.displayName = displayName
+        self.baked = baked
+    }
+}
+
 public struct VMRegistry: Codable {
     public var vms: [VMEntry]
+    public var bases: [BaseEntry]
 
-    public init(vms: [VMEntry]) {
+    public init(vms: [VMEntry], bases: [BaseEntry] = []) {
         self.vms = vms
+        self.bases = bases
+    }
+
+    private enum CodingKeys: String, CodingKey { case vms, bases }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.vms = try c.decodeIfPresent([VMEntry].self, forKey: .vms) ?? []
+        self.bases = try c.decodeIfPresent([BaseEntry].self, forKey: .bases) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(vms, forKey: .vms)
+        try c.encode(bases, forKey: .bases)
     }
 }
 
