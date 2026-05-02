@@ -55,4 +55,49 @@ final class RouterDispatchTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 17)
         XCTAssertEqual(String(data: result.stderr, encoding: .utf8), "boom\n")
     }
+
+    func testDispatchRemoteRunsScpBacksOnSuccess() throws {
+        let vm = VMEntry(name: "axon-x", base: "b", created: Date(), ip: "10.0.0.5")
+        let ssh = RecordingSSH()
+        let scp = NoopScp()
+        let scpBack = ScpBack(vmPath: "/tmp/axon-out.png", hostPath: "/Users/me/shot.png")
+        _ = try dispatchRemote(
+            vm: vm, argv: ["screenshot"], scpBacks: [scpBack],
+            ssh: ssh, scpRunner: scp
+        )
+        XCTAssertEqual(scp.calls.count, 1)
+        XCTAssertEqual(scp.calls[0].vmPath, "/tmp/axon-out.png")
+        XCTAssertEqual(scp.calls[0].hostPath, "/Users/me/shot.png")
+    }
+
+    func testDispatchRemoteSkipsScpOnNonZeroExit() throws {
+        let vm = VMEntry(name: "axon-x", base: "b", created: Date(), ip: "10.0.0.5")
+        let ssh = RecordingSSH()
+        ssh.exitCode = 1
+        let scp = NoopScp()
+        let scpBack = ScpBack(vmPath: "/tmp/axon-out.png", hostPath: "/Users/me/shot.png")
+        _ = try dispatchRemote(
+            vm: vm, argv: ["screenshot"], scpBacks: [scpBack],
+            ssh: ssh, scpRunner: scp
+        )
+        XCTAssertTrue(scp.calls.isEmpty, "Failed SSH must skip scp-back; the file probably wasn't written")
+    }
+
+    func testDispatchRemoteSurfacesScpFailure() {
+        let vm = VMEntry(name: "axon-x", base: "b", created: Date(), ip: "10.0.0.5")
+        let ssh = RecordingSSH()
+        let scp = NoopScp()
+        scp.failure = VMError("Permission denied")
+        let scpBack = ScpBack(vmPath: "/tmp/axon-out.png", hostPath: "/Users/me/shot.png")
+        XCTAssertThrowsError(try dispatchRemote(
+            vm: vm, argv: ["screenshot"], scpBacks: [scpBack],
+            ssh: ssh, scpRunner: scp
+        )) { err in
+            if case let .outputTransferFailed(message) = err as? RouterError {
+                XCTAssertTrue(message.contains("Permission denied"))
+            } else {
+                XCTFail("Expected .outputTransferFailed, got \(err)")
+            }
+        }
+    }
 }

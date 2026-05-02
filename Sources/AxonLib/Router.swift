@@ -47,6 +47,7 @@ public enum RouterError: Error, Equatable {
     case vmNotReady(name: String)
     case sshFailed(stderr: String, exitCode: Int32)
     case vmAcquireFailed(message: String)
+    case outputTransferFailed(message: String)
 }
 
 // MARK: - Bundle ID Resolver (test seam)
@@ -188,6 +189,14 @@ public func dispatchRemote(
     guard let ip = vm.ip else { throw RouterError.vmNotReady(name: vm.name) }
     let env = ["AXON_TARGET": "local"]
     let result = ssh.run(vmIP: ip, argv: argv, env: env)
-    // scp-backs are wired in the next task; for now we just pass result through.
+    if result.exitCode == 0 {
+        for back in scpBacks {
+            switch scpRunner.transfer(back, fromVMIP: ip) {
+            case .success: continue
+            case .failure(let err):
+                throw RouterError.outputTransferFailed(message: err.description)
+            }
+        }
+    }
     return result
 }
