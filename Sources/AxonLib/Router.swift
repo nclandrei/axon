@@ -166,3 +166,28 @@ public func remapFileOutputs(
     rewritten[outputIdx + 1] = vmPath
     return (rewritten, [ScpBack(vmPath: vmPath, hostPath: hostPath)])
 }
+
+// MARK: - SSH / SCP Dispatch (test seams)
+
+public protocol SSHDispatcher {
+    func run(vmIP: String, argv: [String], env: [String: String])
+        -> (stdout: Data, stderr: Data, exitCode: Int32)
+}
+
+public protocol ScpBackRunner {
+    func transfer(_ scpBack: ScpBack, fromVMIP ip: String) -> Result<Void, VMError>
+}
+
+public func dispatchRemote(
+    vm: VMEntry,
+    argv: [String],
+    scpBacks: [ScpBack],
+    ssh: SSHDispatcher,
+    scpRunner: ScpBackRunner
+) throws -> (stdout: Data, stderr: Data, exitCode: Int32) {
+    guard let ip = vm.ip else { throw RouterError.vmNotReady(name: vm.name) }
+    let env = ["AXON_TARGET": "local"]
+    let result = ssh.run(vmIP: ip, argv: argv, env: env)
+    // scp-backs are wired in the next task; for now we just pass result through.
+    return result
+}
