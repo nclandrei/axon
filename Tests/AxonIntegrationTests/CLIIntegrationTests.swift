@@ -1045,11 +1045,9 @@ final class CLIIntegrationTests: XCTestCase {
         process.waitUntilExit()
 
         XCTAssertEqual(process.terminationStatus, 0)
-        if FileManager.default.fileExists(atPath: registryPath) {
-            let data = try Data(contentsOf: URL(fileURLWithPath: registryPath))
-            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-            let bases = json?["bases"] as? [[String: Any]] ?? []
-            XCTAssertEqual(bases.count, 0, "vm-bake without --for-bundle must not write a base entry")
-        }
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: registryPath),
+            "vm-bake without --for-bundle must not create the registry"
+        )
     }
 }
