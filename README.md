@@ -38,6 +38,56 @@ axon tree --help         # per-command details if needed
 
 No MCP server needed — the CLI is the interface.
 
+## VM-by-default routing
+
+UI-driving commands (`click`, `type`, `screenshot`, `tree`, …) route to a
+per-app Tart VM by default. axon resolves the target VM by:
+
+1. Looking up the app's bundle ID (via `--app <name>`, `--bundle-id <id>`, or
+   the host's running-app list).
+2. Looking up that bundle ID in the `bases` registry (`~/.axon/vms.json`).
+3. Reusing a registered VM whose base matches, or `vm-acquire`ing a fresh one.
+
+To opt back to the host:
+
+- `--local` flag — per-call.
+- `AXON_TARGET=local` env — process-wide default; flag overrides.
+
+If no base is registered for the target bundle ID, axon exits 2 with
+`no_base_registered` and tells you exactly which `vm-bake` to run.
+
+### Set up a per-app VM
+
+```bash
+# 1. One-time per app: bake a base and record the bundle-ID mapping.
+axon vm-bake --source ghcr.io/cirruslabs/macos-sequoia-base:latest \
+             --name axon-cicero-base \
+             --for-bundle com.andreinicolas.Cicero \
+             --display-name Cicero
+tart run  axon-cicero-base    # install Cicero, install axon, grant AX + screen recording
+tart stop axon-cicero-base    # seal it
+
+# 2. Drive Cicero — axon auto-acquires a VM on first call.
+axon screenshot --app Cicero --output ./shot.png   # silently routes to VM and scps back
+
+# 3. (Optional) Ship today's build into running VMs.
+axon vm-sync --bundle-id com.andreinicolas.Cicero --path .build/release/Cicero.app
+
+# 4. Tear down when done.
+axon vm-release --all
+```
+
+### One-time VM setup checklist
+
+The baked base must contain:
+
+- The target app, installed (e.g., dragged into `/Applications/` inside the VM).
+- The `axon` binary on `PATH` (`scp axon admin@<vm-ip>:/usr/local/bin/axon`).
+- Accessibility + Screen Recording permissions granted to `axon` (driven via
+  System Settings during the interactive `tart run` step).
+- An SSH authorized key for the host so `ssh admin@<vm-ip> axon` works
+  non-interactively.
+
 ## Agent Workflow
 
 ```bash
