@@ -48,6 +48,19 @@ public enum RouterError: Error, Equatable {
     case sshFailed(stderr: String, exitCode: Int32)
 }
 
+// MARK: - Bundle ID Resolver (test seam)
+
+public protocol BundleIDResolver {
+    func bundleID(forAppName name: String) -> String?
+}
+
+public struct LiveBundleIDResolver: BundleIDResolver {
+    public init() {}
+    public func bundleID(forAppName name: String) -> String? {
+        findApp(name: name)?.bundleIdentifier
+    }
+}
+
 // MARK: - VM Acquirer (test seam)
 
 public protocol VMAcquirer {
@@ -79,26 +92,45 @@ public func resolveTarget(
     command: String,
     registry: VMRegistry,
     env: [String: String],
-    acquirer: VMAcquirer
+    acquirer: VMAcquirer,
+    bundleIDResolver: BundleIDResolver = LiveBundleIDResolver()
 ) throws -> Target {
-    // 1. Explicit --local always wins.
-    if hasFlag(argv, "local") {
-        return .local
-    }
-    // 2. AXON_TARGET=local env.
-    if env["AXON_TARGET"] == "local" {
-        return .local
-    }
-    // 3. --vm <name> targets a specific registered VM.
+    if hasFlag(argv, "local") { return .local }
+    if env["AXON_TARGET"] == "local" { return .local }
+
     if let vmName = optionValue(argv, "vm") {
         guard let entry = registry.vms.first(where: { $0.name == vmName }) else {
             throw RouterError.vmNotFound(name: vmName)
         }
-        guard entry.ip != nil else {
-            throw RouterError.vmNotReady(name: vmName)
-        }
+        guard entry.ip != nil else { throw RouterError.vmNotReady(name: vmName) }
         return .remote(entry)
     }
-    // (later tasks add --app and --bundle-id resolution + acquire path)
-    throw RouterError.missingTarget(command: command)
+
+    // Resolve bundle ID from --bundle-id (preferred) or --app via two-step lookup.
+    let bundleID: String
+    if let bid = optionValue(argv, "bundle-id") {
+        bundleID = bid
+    } else if let appName = optionValue(argv, "app") {
+        if let registryHit = registry.bases.first(where: {
+            $0.displayName?.localizedCaseInsensitiveCompare(appName) == .orderedSame
+        }) {
+            bundleID = registryHit.bundleID
+        } else if let host = bundleIDResolver.bundleID(forAppName: appName) {
+            bundleID = host
+        } else {
+            throw RouterError.bundleIDNotResolvable(appName: appName)
+        }
+    } else {
+        throw RouterError.missingTarget(command: command)
+    }
+
+    guard let base = findBase(byBundleID: bundleID, in: registry) else {
+        throw RouterError.noBaseRegistered(bundleID: bundleID)
+    }
+
+    if let running = registry.vms.first(where: { $0.base == base.name && $0.ip != nil }) {
+        return .remote(running)
+    }
+    // (acquire path — added in next task)
+    throw RouterError.noBaseRegistered(bundleID: bundleID)
 }

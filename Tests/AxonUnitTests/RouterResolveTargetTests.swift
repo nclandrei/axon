@@ -82,6 +82,81 @@ final class RouterResolveTargetTests: XCTestCase {
             XCTAssertEqual(err as? RouterError, .vmNotReady(name: "axon-broken"))
         }
     }
+    // --- bundle ID resolution ---
+
+    func testAppResolvesViaRegistryDisplayName() throws {
+        let base = BaseEntry(
+            name: "axon-cicero-base", source: "s",
+            bundleID: "com.andreinicolas.Cicero", displayName: "Cicero", baked: Date()
+        )
+        let runningVM = VMEntry(name: "axon-running", base: "axon-cicero-base", created: Date(), ip: "10.0.0.7")
+        let registry = makeRegistry(vms: [runningVM], bases: [base])
+        let target = try resolveTarget(
+            argv: ["--app", "Cicero"],
+            command: "click",
+            registry: registry,
+            env: [:],
+            acquirer: StubAcquirer(),
+            bundleIDResolver: StubBundleIDResolver()
+        )
+        XCTAssertEqual(target, .remote(runningVM))
+    }
+
+    func testAppResolutionIsCaseInsensitive() throws {
+        let base = BaseEntry(
+            name: "axon-cicero-base", source: "s",
+            bundleID: "com.andreinicolas.Cicero", displayName: "Cicero", baked: Date()
+        )
+        let runningVM = VMEntry(name: "axon-r", base: "axon-cicero-base", created: Date(), ip: "10.0.0.8")
+        let registry = makeRegistry(vms: [runningVM], bases: [base])
+        let target = try resolveTarget(
+            argv: ["--app", "cicero"],
+            command: "click",
+            registry: registry,
+            env: [:],
+            acquirer: StubAcquirer(),
+            bundleIDResolver: StubBundleIDResolver()
+        )
+        XCTAssertEqual(target, .remote(runningVM))
+    }
+
+    func testBundleIDFlagBypassesAppLookup() throws {
+        let base = BaseEntry(
+            name: "axon-x-base", source: "s",
+            bundleID: "com.example.X", displayName: nil, baked: Date()
+        )
+        let runningVM = VMEntry(name: "axon-x-vm", base: "axon-x-base", created: Date(), ip: "10.0.0.9")
+        let registry = makeRegistry(vms: [runningVM], bases: [base])
+        let target = try resolveTarget(
+            argv: ["--bundle-id", "com.example.X"],
+            command: "click",
+            registry: registry,
+            env: [:],
+            acquirer: StubAcquirer(),
+            bundleIDResolver: StubBundleIDResolver()
+        )
+        XCTAssertEqual(target, .remote(runningVM))
+    }
+
+    func testAppFallsBackToHostBundleIDResolver() throws {
+        // No matching displayName in registry — fall through to host lookup.
+        let base = BaseEntry(
+            name: "axon-hostlookup-base", source: "s",
+            bundleID: "com.host.Looked", displayName: nil, baked: Date()
+        )
+        let runningVM = VMEntry(name: "axon-h", base: "axon-hostlookup-base", created: Date(), ip: "10.0.0.10")
+        let registry = makeRegistry(vms: [runningVM], bases: [base])
+        let resolver = StubBundleIDResolver(map: ["WeirdName": "com.host.Looked"])
+        let target = try resolveTarget(
+            argv: ["--app", "WeirdName"],
+            command: "click",
+            registry: registry,
+            env: [:],
+            acquirer: StubAcquirer(),
+            bundleIDResolver: resolver
+        )
+        XCTAssertEqual(target, .remote(runningVM))
+    }
 }
 
 // MARK: - Stub acquirer used by all RouterResolveTargetTests
@@ -98,4 +173,9 @@ final class StubAcquirer: VMAcquirer {
         calls.append((base, headless, timeout))
         return .success(entryToReturn)
     }
+}
+
+struct StubBundleIDResolver: BundleIDResolver {
+    var map: [String: String] = [:]
+    func bundleID(forAppName name: String) -> String? { map[name] }
 }
