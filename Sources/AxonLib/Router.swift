@@ -139,3 +139,30 @@ public func resolveTarget(
         throw RouterError.vmAcquireFailed(message: err.description)
     }
 }
+
+// MARK: - File-output remap
+
+public struct ScpBack: Equatable {
+    public let vmPath: String
+    public let hostPath: String
+    public init(vmPath: String, hostPath: String) {
+        self.vmPath = vmPath
+        self.hostPath = hostPath
+    }
+}
+
+public func remapFileOutputs(
+    argv: [String],
+    command: String,
+    tempPathProvider: () -> String = { "/tmp/axon-out-\(UUID().uuidString).bin" }
+) -> (rewritten: [String], scpBacks: [ScpBack]) {
+    guard command == "screenshot" else { return (argv, []) }
+    guard let outputIdx = argv.firstIndex(of: "--output"), outputIdx + 1 < argv.count else {
+        return (argv, [])
+    }
+    let hostPath = argv[outputIdx + 1]
+    let vmPath = tempPathProvider()
+    var rewritten = argv
+    rewritten[outputIdx + 1] = vmPath
+    return (rewritten, [ScpBack(vmPath: vmPath, hostPath: hostPath)])
+}
