@@ -350,4 +350,10 @@ final class VMManagerTests: XCTestCase {
         let resolved = activeVMRegistryURL(env: ["AXON_REGISTRY_PATH": ""])
         XCTAssertEqual(resolved.path, defaultVMRegistryURL.path)
     }
+
+    func testActiveVMRegistryURLExpandsTilde() {
+        let resolved = activeVMRegistryURL(env: ["AXON_REGISTRY_PATH": "~/axon-test-tilde-expansion.json"])
+        let home = NSHomeDirectory()
+        XCTAssertEqual(resolved.path, "\(home)/axon-test-tilde-expansion.json")
+    }
 }

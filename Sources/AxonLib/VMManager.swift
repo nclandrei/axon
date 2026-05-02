@@ -26,7 +26,8 @@ public var defaultVMRegistryURL: URL { registryFileURL }
 /// to a non-empty value; otherwise falls back to `defaultVMRegistryURL`.
 public func activeVMRegistryURL(env: [String: String] = ProcessInfo.processInfo.environment) -> URL {
     if let v = env["AXON_REGISTRY_PATH"], !v.isEmpty {
-        return URL(fileURLWithPath: v)
+        let expanded = (v as NSString).expandingTildeInPath
+        return URL(fileURLWithPath: expanded)
     }
     return defaultVMRegistryURL
 }
