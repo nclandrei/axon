@@ -45,7 +45,6 @@ public enum RouterError: Error, Equatable {
     case bundleIDNotResolvable(appName: String)
     case vmNotFound(name: String)
     case vmNotReady(name: String)
-    case sshFailed(stderr: String, exitCode: Int32)
     case vmAcquireFailed(message: String)
     case outputTransferFailed(message: String)
 }

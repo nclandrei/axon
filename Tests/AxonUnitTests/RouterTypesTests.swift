@@ -25,8 +25,9 @@ final class RouterTypesTests: XCTestCase {
             .bundleIDNotResolvable(appName: "Foo"),
             .vmNotFound(name: "axon-zzz"),
             .vmNotReady(name: "axon-zzz"),
-            .sshFailed(stderr: "boom", exitCode: 99),
+            .vmAcquireFailed(message: "boom"),
+            .outputTransferFailed(message: "boom"),
         ]
-        XCTAssertEqual(errors.count, 6)
+        XCTAssertEqual(errors.count, 7)
     }
 }

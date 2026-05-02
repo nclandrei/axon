@@ -930,7 +930,7 @@ if classifyCommand(command) == .vmRoutable {
         printError(code: "missing_target", message: "\(cmd): pass --vm <name>, --app <name>, --bundle-id <id>, or --local")
         exit(2)
     } catch let RouterError.bundleIDNotResolvable(appName) {
-        printError(code: "app_not_found", message: "Could not resolve bundle ID for app '\(appName)'. " +
+        printError(code: "bundle_id_not_resolvable", message: "Could not resolve bundle ID for app '\(appName)'. " +
                                                    "Pass --bundle-id <id> directly, or install the app on the host.")
         exit(2)
     } catch let RouterError.vmNotFound(name) {
