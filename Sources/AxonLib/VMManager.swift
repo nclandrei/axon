@@ -22,6 +22,15 @@ private let registryFileURL: URL = {
 /// Default location of the VM registry file (`~/.axon/vms.json`).
 public var defaultVMRegistryURL: URL { registryFileURL }
 
+/// Resolve the registry path. Honors `AXON_REGISTRY_PATH` env var when set
+/// to a non-empty value; otherwise falls back to `defaultVMRegistryURL`.
+public func activeVMRegistryURL(env: [String: String] = ProcessInfo.processInfo.environment) -> URL {
+    if let v = env["AXON_REGISTRY_PATH"], !v.isEmpty {
+        return URL(fileURLWithPath: v)
+    }
+    return defaultVMRegistryURL
+}
+
 // MARK: - VM Registry Model
 
 public struct VMEntry: Codable {

@@ -332,4 +332,22 @@ final class VMManagerTests: XCTestCase {
         let registry = VMRegistry(vms: [], bases: [])
         XCTAssertNil(findBase(byBundleID: "com.absent.X", in: registry))
     }
+
+    // MARK: - AXON_REGISTRY_PATH env
+
+    func testActiveVMRegistryURLHonorsEnvOverride() {
+        let custom = registryURL("env-override.json")
+        let resolved = activeVMRegistryURL(env: ["AXON_REGISTRY_PATH": custom.path])
+        XCTAssertEqual(resolved.path, custom.path)
+    }
+
+    func testActiveVMRegistryURLFallsBackToDefaultWhenEnvUnset() {
+        let resolved = activeVMRegistryURL(env: [:])
+        XCTAssertEqual(resolved.path, defaultVMRegistryURL.path)
+    }
+
+    func testActiveVMRegistryURLIgnoresEmptyEnv() {
+        let resolved = activeVMRegistryURL(env: ["AXON_REGISTRY_PATH": ""])
+        XCTAssertEqual(resolved.path, defaultVMRegistryURL.path)
+    }
 }
