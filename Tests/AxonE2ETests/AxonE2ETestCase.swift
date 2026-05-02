@@ -13,6 +13,11 @@ class AxonE2ETestCase: XCTestCase {
         let process = Process()
         process.executableURL = Self.axonBinary
         process.arguments = args
+        var env = ProcessInfo.processInfo.environment
+        if env["AXON_TARGET"] == nil {
+            env["AXON_TARGET"] = "local"
+        }
+        process.environment = env
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.standardOutput = stdoutPipe
