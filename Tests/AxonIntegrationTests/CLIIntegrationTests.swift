@@ -22,6 +22,12 @@ final class CLIIntegrationTests: XCTestCase {
         process.executableURL = Self.binaryURL
         process.arguments = args
 
+        var env = ProcessInfo.processInfo.environment
+        if env["AXON_TARGET"] == nil {
+            env["AXON_TARGET"] = "local"
+        }
+        process.environment = env
+
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.standardOutput = stdoutPipe
@@ -1049,5 +1055,60 @@ final class CLIIntegrationTests: XCTestCase {
             FileManager.default.fileExists(atPath: registryPath),
             "vm-bake without --for-bundle must not create the registry"
         )
+    }
+
+    // MARK: - Router integration
+
+    func testNoBaseRegisteredErrorOnUIClick() throws {
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("axon-router-itest-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let registryPath = tmpDir.appendingPathComponent("vms.json").path
+
+        let process = Process()
+        process.executableURL = Self.binaryURL
+        // Use --bundle-id directly to bypass app-name lookup; no base is registered in the empty registry.
+        process.arguments = ["click", "--bundle-id", "com.apple.TextEdit", "--label", "Save"]
+        var env = ProcessInfo.processInfo.environment
+        env["AXON_REGISTRY_PATH"] = registryPath
+        env.removeValue(forKey: "AXON_TARGET")  // ensure we exercise VM mode
+        process.environment = env
+        let outPipe = Pipe(); let errPipe = Pipe()
+        process.standardOutput = outPipe
+        process.standardError = errPipe
+        try process.run()
+        process.waitUntilExit()
+
+        XCTAssertEqual(process.terminationStatus, 2,
+            "Missing base must exit 2 (router error); got \(process.terminationStatus)")
+        let stderr = String(data: errPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        XCTAssertTrue(stderr.contains("no_base_registered"),
+            "Stderr should mention no_base_registered; got: \(stderr)")
+    }
+
+    func testLocalFlagBypassesRouter() throws {
+        let process = Process()
+        process.executableURL = Self.binaryURL
+        process.arguments = ["list", "--local"]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0, "list --local should succeed locally")
+    }
+
+    func testAxonTargetLocalEnvBypassesRouter() throws {
+        let process = Process()
+        process.executableURL = Self.binaryURL
+        process.arguments = ["list"]
+        var env = ProcessInfo.processInfo.environment
+        env["AXON_TARGET"] = "local"
+        process.environment = env
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0, "AXON_TARGET=local should pass through to local list")
     }
 }

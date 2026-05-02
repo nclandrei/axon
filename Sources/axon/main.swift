@@ -885,6 +885,69 @@ if cli.hasHelp() {
 
 let noActivate = cli.flag("no-activate")
 
+// MARK: - VM-by-default routing
+// Route UI commands to a Tart VM unless --local / AXON_TARGET=local opt back to host.
+if classifyCommand(command) == .vmRoutable {
+    let registry = loadVMRegistry(at: activeVMRegistryURL())
+    do {
+        let target = try resolveTarget(
+            argv: cli.args,
+            command: command,
+            registry: registry,
+            env: ProcessInfo.processInfo.environment,
+            acquirer: LiveVMAcquirer()
+        )
+        switch target {
+        case .local:
+            break  // fall through to existing switch below
+        case .remote(let vm):
+            let (rewritten, scps) = remapFileOutputs(argv: cli.args, command: command)
+            do {
+                let result = try dispatchRemote(
+                    vm: vm,
+                    argv: rewritten,
+                    scpBacks: scps,
+                    ssh: LiveSSHDispatcher(),
+                    scpRunner: LiveScpBackRunner()
+                )
+                FileHandle.standardOutput.write(result.stdout)
+                FileHandle.standardError.write(result.stderr)
+                exit(result.exitCode)
+            } catch let RouterError.outputTransferFailed(message) {
+                printError(code: "output_transfer_failed", message: message)
+                exit(1)
+            }
+        }
+    } catch let RouterError.noBaseRegistered(bundleID) {
+        printError(
+            code: "no_base_registered",
+            message: "No VM base registered for \(bundleID). " +
+                     "Bake one with: axon vm-bake --source <image> --name axon-<app>-base --for-bundle \(bundleID)" +
+                     " — or pass --local to drive the host."
+        )
+        exit(2)
+    } catch let RouterError.missingTarget(cmd) {
+        printError(code: "missing_target", message: "\(cmd): pass --vm <name>, --app <name>, --bundle-id <id>, or --local")
+        exit(2)
+    } catch let RouterError.bundleIDNotResolvable(appName) {
+        printError(code: "app_not_found", message: "Could not resolve bundle ID for app '\(appName)'. " +
+                                                   "Pass --bundle-id <id> directly, or install the app on the host.")
+        exit(2)
+    } catch let RouterError.vmNotFound(name) {
+        printError(code: "vm_not_found", message: "No VM named '\(name)' in registry. See: axon vm-list")
+        exit(2)
+    } catch let RouterError.vmNotReady(name) {
+        printError(code: "vm_not_ready", message: "VM '\(name)' has no IP yet; re-acquire or wait.")
+        exit(2)
+    } catch let RouterError.vmAcquireFailed(message) {
+        printError(code: "vm_acquire_failed", message: message)
+        exit(2)
+    } catch {
+        printError(code: "router_error", message: "\(error)")
+        exit(2)
+    }
+}
+
 switch command {
 case "list":
     let includeAccessory = cli.flag("all")
