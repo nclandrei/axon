@@ -290,4 +290,45 @@ final class VMManagerTests: XCTestCase {
         XCTAssertEqual(loaded.vms.count, 1)
         XCTAssertEqual(loaded.bases.count, 0, "Missing bases field must decode as []")
     }
+
+    // MARK: - recordBase / findBase
+
+    func testRecordBaseWritesBaseEntry() throws {
+        let url = registryURL()
+        try recordBase(
+            name: "axon-cicero-base",
+            source: "src",
+            bundleID: "com.andreinicolas.Cicero",
+            displayName: "Cicero",
+            at: url
+        )
+        let loaded = loadVMRegistry(at: url)
+        XCTAssertEqual(loaded.bases.count, 1)
+        XCTAssertEqual(loaded.bases[0].name, "axon-cicero-base")
+        XCTAssertEqual(loaded.bases[0].bundleID, "com.andreinicolas.Cicero")
+        XCTAssertEqual(loaded.bases[0].displayName, "Cicero")
+    }
+
+    func testRecordBaseReplacesExistingMappingForSameBundleID() throws {
+        let url = registryURL()
+        try recordBase(name: "old-base", source: "s", bundleID: "com.x.A", displayName: "A", at: url)
+        try recordBase(name: "new-base", source: "s", bundleID: "com.x.A", displayName: "A", at: url)
+        let loaded = loadVMRegistry(at: url)
+        XCTAssertEqual(loaded.bases.count, 1, "Re-baking same bundle ID should replace, not append")
+        XCTAssertEqual(loaded.bases[0].name, "new-base")
+    }
+
+    func testFindBaseByBundleIDReturnsMatch() throws {
+        let url = registryURL()
+        try recordBase(name: "axon-x", source: "s", bundleID: "com.x.X", displayName: "X", at: url)
+        try recordBase(name: "axon-y", source: "s", bundleID: "com.y.Y", displayName: "Y", at: url)
+        let registry = loadVMRegistry(at: url)
+        let found = findBase(byBundleID: "com.y.Y", in: registry)
+        XCTAssertEqual(found?.name, "axon-y")
+    }
+
+    func testFindBaseByBundleIDReturnsNilWhenMissing() {
+        let registry = VMRegistry(vms: [], bases: [])
+        XCTAssertNil(findBase(byBundleID: "com.absent.X", in: registry))
+    }
 }

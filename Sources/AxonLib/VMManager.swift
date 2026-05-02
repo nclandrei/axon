@@ -302,6 +302,34 @@ public func vmRelease(name: String) -> Result<Bool, VMError> {
     return .success(true)
 }
 
+/// Record a baked base in the registry at the given URL. Replaces any existing
+/// entry with the same bundleID. Creates parent directories if needed.
+public func recordBase(
+    name: String,
+    source: String,
+    bundleID: String,
+    displayName: String?,
+    at url: URL
+) throws {
+    let parent = url.deletingLastPathComponent()
+    try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+    var registry = loadVMRegistry(at: url)
+    registry.bases.removeAll { $0.bundleID == bundleID }
+    registry.bases.append(BaseEntry(
+        name: name,
+        source: source,
+        bundleID: bundleID,
+        displayName: displayName,
+        baked: Date()
+    ))
+    try saveVMRegistry(registry, to: url)
+}
+
+/// Look up a registered base by bundle ID. Pure function over a loaded registry.
+public func findBase(byBundleID bundleID: String, in registry: VMRegistry) -> BaseEntry? {
+    registry.bases.first { $0.bundleID == bundleID }
+}
+
 /// List all axon-managed VMs from the registry.
 public func vmListEntries() -> [VMEntry] {
     loadRegistry().vms
