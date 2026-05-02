@@ -311,11 +311,12 @@ final class VMManagerTests: XCTestCase {
 
     func testRecordBaseReplacesExistingMappingForSameBundleID() throws {
         let url = registryURL()
-        try recordBase(name: "old-base", source: "s", bundleID: "com.x.A", displayName: "A", at: url)
-        try recordBase(name: "new-base", source: "s", bundleID: "com.x.A", displayName: "A", at: url)
+        try recordBase(name: "old-base", source: "old-src", bundleID: "com.x.A", displayName: "A", at: url)
+        try recordBase(name: "new-base", source: "new-src", bundleID: "com.x.A", displayName: "A", at: url)
         let loaded = loadVMRegistry(at: url)
         XCTAssertEqual(loaded.bases.count, 1, "Re-baking same bundle ID should replace, not append")
         XCTAssertEqual(loaded.bases[0].name, "new-base")
+        XCTAssertEqual(loaded.bases[0].source, "new-src")
     }
 
     func testFindBaseByBundleIDReturnsMatch() throws {

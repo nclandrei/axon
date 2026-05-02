@@ -162,24 +162,23 @@ private func saveRegistry(_ registry: VMRegistry) throws {
     try saveVMRegistry(registry, to: registryFileURL)
 }
 
-private func withRegistryLock<T>(_ body: (inout VMRegistry) throws -> T) throws -> T {
-    try FileManager.default.createDirectory(at: registryDirURL, withIntermediateDirectories: true)
-    let lockPath = registryDirURL.appendingPathComponent("vms.lock").path
+/// Serialises read-modify-write access to the registry file at `url` using an
+/// advisory flock. The lock file is named `<registry-filename>.lock` and lives
+/// next to the registry file (e.g. `~/.axon/vms.json.lock` for the live path).
+private func withRegistryLock<T>(at url: URL, _ body: (inout VMRegistry) throws -> T) throws -> T {
+    let parent = url.deletingLastPathComponent()
+    try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+    let lockPath = parent.appendingPathComponent("\(url.lastPathComponent).lock").path
     FileManager.default.createFile(atPath: lockPath, contents: nil)
     let fd = open(lockPath, O_RDWR)
-    guard fd >= 0 else {
-        throw VMError("Failed to open lock file")
-    }
+    guard fd >= 0 else { throw VMError("Failed to open lock file") }
     defer { close(fd) }
-
-    guard flock(fd, LOCK_EX) == 0 else {
-        throw VMError("Failed to acquire registry lock")
-    }
+    guard flock(fd, LOCK_EX) == 0 else { throw VMError("Failed to acquire registry lock") }
     defer { flock(fd, LOCK_UN) }
 
-    var registry = loadRegistry()
+    var registry = loadVMRegistry(at: url)
     let result = try body(&registry)
-    try saveRegistry(registry)
+    try saveVMRegistry(registry, to: url)
     return result
 }
 
@@ -251,7 +250,7 @@ public func vmAcquire(base: String, headless: Bool, timeout: Int) -> Result<VMEn
     // 6. Register in registry
     let entry = VMEntry(name: vmName, base: base, created: Date(), ip: vmIP)
     do {
-        try withRegistryLock { registry in
+        try withRegistryLock(at: registryFileURL) { registry in
             registry.vms.append(entry)
         }
     } catch {
@@ -292,7 +291,7 @@ public func vmRelease(name: String) -> Result<Bool, VMError> {
 
     // Remove from registry
     do {
-        try withRegistryLock { registry in
+        try withRegistryLock(at: registryFileURL) { registry in
             registry.vms.removeAll { $0.name == name }
         }
     } catch {
@@ -311,18 +310,16 @@ public func recordBase(
     displayName: String?,
     at url: URL
 ) throws {
-    let parent = url.deletingLastPathComponent()
-    try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
-    var registry = loadVMRegistry(at: url)
-    registry.bases.removeAll { $0.bundleID == bundleID }
-    registry.bases.append(BaseEntry(
-        name: name,
-        source: source,
-        bundleID: bundleID,
-        displayName: displayName,
-        baked: Date()
-    ))
-    try saveVMRegistry(registry, to: url)
+    try withRegistryLock(at: url) { registry in
+        registry.bases.removeAll { $0.bundleID == bundleID }
+        registry.bases.append(BaseEntry(
+            name: name,
+            source: source,
+            bundleID: bundleID,
+            displayName: displayName,
+            baked: Date()
+        ))
+    }
 }
 
 /// Look up a registered base by bundle ID. Pure function over a loaded registry.
