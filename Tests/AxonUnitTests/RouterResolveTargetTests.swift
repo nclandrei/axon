@@ -168,15 +168,21 @@ final class RouterResolveTargetTests: XCTestCase {
         // No matching VMs in registry.
         let registry = makeRegistry(bases: [base])
         let acquired = VMEntry(name: "axon-fresh", base: "axon-cicero-base", created: Date(), ip: "10.0.0.42")
+        let acquirer = StubAcquirer(entryToReturn: acquired)
         let target = try resolveTarget(
             argv: ["--app", "Cicero"],
             command: "click",
             registry: registry,
             env: [:],
-            acquirer: StubAcquirer(entryToReturn: acquired),
+            acquirer: acquirer,
             bundleIDResolver: StubBundleIDResolver()
         )
         XCTAssertEqual(target, .remote(acquired))
+        // Lock in the hardcoded acquire defaults so a future change is a deliberate red.
+        XCTAssertEqual(acquirer.calls.count, 1)
+        XCTAssertEqual(acquirer.calls[0].base, "axon-cicero-base")
+        XCTAssertTrue(acquirer.calls[0].headless)
+        XCTAssertEqual(acquirer.calls[0].timeout, 60)
     }
 
     func testAcquireFailureSurfacesAsRouterError() {
