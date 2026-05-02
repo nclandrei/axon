@@ -1562,14 +1562,39 @@ case "vm-bake":
         printError(code: "missing_option", message: "Provide --source <image> and --name <new-base>")
         exit(1)
     }
+    let bundleID = cli.option("for-bundle")
+    let displayName = cli.option("display-name")
 
     switch vmBake(source: source, name: name) {
     case .success(let baked):
-        let out = VMBakeOutput(success: true, name: baked.name, source: baked.source)
-        emit(out, plain: [
+        if let bid = bundleID {
+            do {
+                try recordBase(
+                    name: baked.name,
+                    source: baked.source,
+                    bundleID: bid,
+                    displayName: displayName,
+                    at: activeVMRegistryURL()
+                )
+            } catch {
+                printError(code: "registry_write_failed", message: "Baked but failed to record base: \(error)")
+                exit(1)
+            }
+        }
+        let out = VMBakeOutput(
+            success: true,
+            name: baked.name,
+            source: baked.source,
+            bundleID: bundleID,
+            displayName: displayName
+        )
+        var plain: [(String, String)] = [
             ("name", baked.name),
             ("source", baked.source),
-        ])
+        ]
+        if let bid = bundleID { plain.append(("bundleID", bid)) }
+        if let dn = displayName { plain.append(("displayName", dn)) }
+        emit(out, plain: plain)
     case .failure(let err):
         printError(code: "vm_bake_failed", message: err.description)
         exit(1)

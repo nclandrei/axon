@@ -560,11 +560,15 @@ public struct VMBakeOutput: Codable {
     public let success: Bool
     public let name: String
     public let source: String
+    public let bundleID: String?
+    public let displayName: String?
 
-    public init(success: Bool, name: String, source: String) {
+    public init(success: Bool, name: String, source: String, bundleID: String? = nil, displayName: String? = nil) {
         self.success = success
         self.name = name
         self.source = source
+        self.bundleID = bundleID
+        self.displayName = displayName
     }
 }
 

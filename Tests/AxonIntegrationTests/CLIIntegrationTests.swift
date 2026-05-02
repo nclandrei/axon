@@ -980,4 +980,76 @@ final class CLIIntegrationTests: XCTestCase {
             "stderr should call out the contradictory flags"
         )
     }
+
+    // MARK: - vm-bake --for-bundle
+
+    func testVMBakeForBundleWritesBasesEntry() throws {
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("axon-bake-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let registryPath = tmpDir.appendingPathComponent("vms.json").path
+
+        let process = Process()
+        process.executableURL = Self.binaryURL
+        process.arguments = [
+            "vm-bake",
+            "--source", "ghcr.io/example/fake:latest",
+            "--name", "axon-test-base",
+            "--for-bundle", "com.example.Test",
+            "--display-name", "Test",
+        ]
+        var env = ProcessInfo.processInfo.environment
+        env["AXON_REGISTRY_PATH"] = registryPath
+        env["AXON_SKIP_TART"] = "1"
+        process.environment = env
+        let stdoutPipe = Pipe(); let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+        try process.run()
+        process.waitUntilExit()
+
+        XCTAssertEqual(process.terminationStatus, 0,
+            "vm-bake with AXON_SKIP_TART should succeed; stderr=\(String(data: stderrPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "")")
+
+        let data = try Data(contentsOf: URL(fileURLWithPath: registryPath))
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let bases = json?["bases"] as? [[String: Any]] ?? []
+        XCTAssertEqual(bases.count, 1)
+        XCTAssertEqual(bases[0]["name"] as? String, "axon-test-base")
+        XCTAssertEqual(bases[0]["bundleID"] as? String, "com.example.Test")
+        XCTAssertEqual(bases[0]["displayName"] as? String, "Test")
+    }
+
+    func testVMBakeWithoutForBundleDoesNotWriteBase() throws {
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("axon-bake-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let registryPath = tmpDir.appendingPathComponent("vms.json").path
+
+        let process = Process()
+        process.executableURL = Self.binaryURL
+        process.arguments = [
+            "vm-bake",
+            "--source", "ghcr.io/example/fake:latest",
+            "--name", "axon-bare-base",
+        ]
+        var env = ProcessInfo.processInfo.environment
+        env["AXON_REGISTRY_PATH"] = registryPath
+        env["AXON_SKIP_TART"] = "1"
+        process.environment = env
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        try process.run()
+        process.waitUntilExit()
+
+        XCTAssertEqual(process.terminationStatus, 0)
+        if FileManager.default.fileExists(atPath: registryPath) {
+            let data = try Data(contentsOf: URL(fileURLWithPath: registryPath))
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let bases = json?["bases"] as? [[String: Any]] ?? []
+            XCTAssertEqual(bases.count, 0, "vm-bake without --for-bundle must not write a base entry")
+        }
+    }
 }

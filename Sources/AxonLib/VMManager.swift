@@ -275,16 +275,21 @@ public func vmAcquire(base: String, headless: Bool, timeout: Int) -> Result<VMEn
 /// `tart run` it once to install their app and grant permissions, then
 /// `tart stop` it. Subsequent `vmAcquire(base: name, ...)` calls clone from
 /// this sealed base instantly via APFS COW.
-public func vmBake(source: String, name: String) -> Result<(name: String, source: String), VMError> {
+public func vmBake(
+    source: String,
+    name: String,
+    env: [String: String] = ProcessInfo.processInfo.environment
+) -> Result<(name: String, source: String), VMError> {
+    if env["AXON_SKIP_TART"] == "1" {
+        return .success((name: name, source: source))
+    }
     guard findTart() != nil else {
         return .failure(VMError("tart not found. Install with: brew install cirruslabs/cli/tart"))
     }
-
     let cloneResult = runTart(["clone", source, name])
     if cloneResult.exitCode != 0 {
         return .failure(VMError("Failed to clone '\(source)' -> '\(name)': \(cloneResult.stderr)"))
     }
-
     return .success((name: name, source: source))
 }
 
