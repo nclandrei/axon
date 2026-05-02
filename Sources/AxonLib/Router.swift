@@ -21,3 +21,29 @@ private let vmRoutableCommands: Set<String> = [
 public func classifyCommand(_ command: String) -> CommandClass {
     vmRoutableCommands.contains(command) ? .vmRoutable : .alwaysLocal
 }
+
+// MARK: - Routing Target
+
+public enum Target: Equatable {
+    case local
+    case remote(VMEntry)
+
+    public static func == (lhs: Target, rhs: Target) -> Bool {
+        switch (lhs, rhs) {
+        case (.local, .local): return true
+        case let (.remote(a), .remote(b)): return a.name == b.name
+        default: return false
+        }
+    }
+}
+
+// MARK: - Router Errors
+
+public enum RouterError: Error, Equatable {
+    case noBaseRegistered(bundleID: String)
+    case missingTarget(command: String)
+    case bundleIDNotResolvable(appName: String)
+    case vmNotFound(name: String)
+    case vmNotReady(name: String)
+    case sshFailed(stderr: String, exitCode: Int32)
+}
